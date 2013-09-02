@@ -1,4 +1,6 @@
 SET(WTF_HEADERS
+    ActionLog.h
+    ActionLogReport.h
     ASCIICType.h
     AVLTree.h
     Alignment.h
@@ -131,6 +133,8 @@ SET(WTF_HEADERS
 )
 
 SET(WTF_SOURCES
+    ActionLog.cpp
+    ActionLogReport.cpp
     ArrayBuffer.cpp
     ArrayBufferView.cpp
     Assertions.cpp

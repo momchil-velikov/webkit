@@ -67,6 +67,10 @@ private:
 };
 
 }
+
+class StringSet;
+class ActionLog;
+class EventAttachLog;
 #endif
 
 namespace WTF {
@@ -108,6 +112,36 @@ public:
     {
         return m_stackBounds;
     }
+
+    // SRL: Log files support.
+
+    StringSet* variableSet() {
+    	return m_variableSet;
+    }
+
+    StringSet* scopeSet() {
+    	return m_scopeSet;
+    }
+
+    StringSet* jsSet() {
+    	return m_jsSet;
+    }
+
+    StringSet* dataSet() {
+    	return m_dataSet;
+    }
+
+    ActionLog* actionLog() {
+    	return m_actionLog;
+    }
+
+    EventAttachLog* eventAttachLog() {
+    	return m_eventAttachLog;
+    }
+
+    void setEventAttachLog(EventAttachLog* l) {
+    	m_eventAttachLog = l;
+    }
 #endif
 
 private:
@@ -118,6 +152,12 @@ private:
     JSC::IdentifierTable* m_defaultIdentifierTable;
     JSC::IdentifierTable* m_currentIdentifierTable;
     StackBounds m_stackBounds;
+    StringSet* m_variableSet;
+    StringSet* m_scopeSet;
+    StringSet* m_jsSet;
+    StringSet* m_dataSet;
+    ActionLog* m_actionLog;
+    EventAttachLog* m_eventAttachLog;
 #endif
 
     static WTF_EXPORTDATA ThreadSpecific<WTFThreadData>* staticData;
