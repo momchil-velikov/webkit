@@ -799,6 +799,7 @@ void HTMLSelectElement::optionSelectionStateChanged(HTMLOptionElement* option, b
 
 void HTMLSelectElement::selectOption(int optionIndex, SelectOptionFlags flags)
 {
+	InstrumentedUIAction selectOptionAction;
     bool shouldDeselect = !m_multiple || (flags & DeselectOtherOptions);
 
     const Vector<HTMLElement*>& items = listItems();

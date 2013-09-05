@@ -92,6 +92,7 @@
 #include "StyleMedia.h"
 #include "StyleResolver.h"
 #include "SuddenTermination.h"
+#include "Timer.h"
 #include "WebKitPoint.h"
 #include "WindowFeatures.h"
 #include <algorithm>
@@ -967,6 +968,8 @@ void DOMWindow::alert(const String& message)
     if (!page)
         return;
 
+    // SRL: Avoid getting recursive events inside the current event.
+    DisabledInstrumentation disable_instrumentation;
     page->chrome()->runJavaScriptAlert(m_frame, message);
 }
 

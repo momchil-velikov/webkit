@@ -68,6 +68,8 @@ HTMLParserScheduler::HTMLParserScheduler(HTMLDocumentParser* parser)
     , m_continueNextChunkTimer(this, &HTMLParserScheduler::continueNextChunkTimerFired)
     , m_isSuspendedWithActiveTimer(false)
 {
+	// Note(veselin): the next chunk could be depending on a network event so the timeout 0 is not important for the happens before.
+	m_continueNextChunkTimer.ignoreFireIntervalForHappensBefore();
 }
 
 HTMLParserScheduler::~HTMLParserScheduler()

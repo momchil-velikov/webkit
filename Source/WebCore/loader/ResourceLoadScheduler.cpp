@@ -36,6 +36,7 @@
 #include "ResourceLoader.h"
 #include "ResourceRequest.h"
 #include "SubresourceLoader.h"
+#include <wtf/ActionLogReport.h>
 #include <wtf/MainThread.h>
 #include <wtf/text/CString.h>
 
@@ -189,6 +190,9 @@ void ResourceLoadScheduler::servePendingRequests(ResourceLoadPriority minimumPri
 void ResourceLoadScheduler::servePendingRequests(HostInformation* host, ResourceLoadPriority minimumPriority)
 {
     LOG(ResourceLoading, "ResourceLoadScheduler::servePendingRequests HostInformation.m_name='%s'", host->name().latin1().data());
+    // SRL: This is sometimes called outside of event actions so we do not report a scope.
+    //ActionLogScope log_scope(
+    //		String::format("check_fetch:%s", host->name().ascii().data()).ascii().data());
 
     for (int priority = ResourceLoadPriorityHighest; priority >= minimumPriority; --priority) {
         HostInformation::RequestQueue& requestsPending = host->requestsPending(ResourceLoadPriority(priority));

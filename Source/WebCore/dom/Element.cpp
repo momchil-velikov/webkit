@@ -66,12 +66,14 @@
 #include "StyleResolver.h"
 #include "Text.h"
 #include "TextIterator.h"
+#include "Timer.h"
 #include "WebKitMutationObserver.h"
 #include "WebKitAnimationList.h"
 #include "XMLNSNames.h"
 #include "XMLNames.h"
 #include "htmlediting.h"
 #include <wtf/text/CString.h>
+#include <wtf/ActionLogReport.h>
 
 #if ENABLE(SVG)
 #include "SVGElement.h"
@@ -936,6 +938,16 @@ Node::InsertionNotificationRequest Element::insertedInto(Node* insertionPoint)
         }
     }
 
+    // SRL: Say that a new element was added (for eventual future happens before).
+    UserInterfaceModification();
+    if (m_attributeData) {
+    	 Attribute* href = getAttributeItem(HTMLNames::hrefAttr);
+    	 if (href && !href->value().isNull() && href->value().startsWith("javascript:")) {
+    		 // SRL: Auto-trigger an onclick event.
+    		 getEventAttachLog()->addEvent(static_cast<void*>(toNode()), EventAttachLog::EV_CLICK);
+    	 }
+    }
+
     return InsertionDone;
 }
 
@@ -959,6 +971,8 @@ void Element::removedFrom(Node* insertionPoint)
     }
 
     ContainerNode::removedFrom(insertionPoint);
+
+    UserInterfaceModification();
 }
 
 void Element::attach()
@@ -2050,6 +2064,10 @@ void Element::didAddAttribute(Attribute* attr)
 {
     attributeChanged(attr);
     InspectorInstrumentation::didModifyDOMAttr(document(), this, attr->name().localName(), attr->value());
+    // SRL: Updating an attribute is recorded as a write to the corresponding field of the object.
+    ActionLogFormat(ActionLog::WRITE_MEMORY, "DOMNode[%p].%s",
+    		static_cast<void*>(this), attr->name().localName().string().ascii().data());
+    UserInterfaceModification();
     dispatchSubtreeModifiedEvent();
 }
 
@@ -2057,6 +2075,10 @@ void Element::didModifyAttribute(Attribute* attr)
 {
     attributeChanged(attr);
     InspectorInstrumentation::didModifyDOMAttr(document(), this, attr->name().localName(), attr->value());
+    // SRL: Updating an attribute is recorded as a write to the corresponding field of the object.
+    ActionLogFormat(ActionLog::WRITE_MEMORY, "DOMNode[%p].%s",
+    		static_cast<void*>(this), attr->name().localName().string().ascii().data());
+    UserInterfaceModification();
     // Do not dispatch a DOMSubtreeModified event here; see bug 81141.
 }
 
@@ -2064,7 +2086,10 @@ void Element::didRemoveAttribute(const QualifiedName& name)
 {
     Attribute dummyAttribute(name, nullAtom);
     attributeChanged(&dummyAttribute);
-
+    // SRL: Updating an attribute is recorded as a write to the corresponding field of the object.
+    ActionLogFormat(ActionLog::WRITE_MEMORY, "DOMNode[%p].%s",
+    		static_cast<void*>(this), name.localName().string().ascii().data());
+    UserInterfaceModification();
     InspectorInstrumentation::didRemoveDOMAttr(document(), this, name.localName());
     dispatchSubtreeModifiedEvent();
 }

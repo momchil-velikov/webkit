@@ -117,6 +117,7 @@
 #include "WebEventConversion.h"
 #include "WindowFeatures.h"
 #include "WorkerThread.h"
+#include <wtf/ActionLogReport.h>
 
 #include <QAction>
 #include <QApplication>
@@ -1956,6 +1957,7 @@ QWebPage::~QWebPage()
     delete d;
 }
 
+
 /*!
     Returns the main frame of the page.
 
@@ -2008,6 +2010,7 @@ QWebHistory *QWebPage::history() const
     d->createMainFrame();
     return &d->history;
 }
+
 
 /*!
     Sets the \a view that is associated with the web page.

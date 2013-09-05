@@ -146,6 +146,7 @@
 #include "StyleSheetList.h"
 #include "TextResourceDecoder.h"
 #include "Timer.h"
+#include "ThreadTimers.h"
 #include "TransformSource.h"
 #include "TreeWalker.h"
 #include "UserContentURLPattern.h"
@@ -159,6 +160,7 @@
 #include "XPathNSResolver.h"
 #include "XPathResult.h"
 #include "htmlediting.h"
+#include <wtf/ActionLogReport.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/HashFunctions.h>
 #include <wtf/MainThread.h>
@@ -634,6 +636,10 @@ void Document::removedLastRef()
 {
     ASSERT(!m_deletionHasBegun);
     if (m_guardRefCount) {
+    	if (threadGlobalData().threadTimers().happensBefore().isCurrentEventActionValid()) {
+    		ActionLogScopeStart("delete_document");
+    	}
+
         // If removing a child removes the last self-only ref, we don't
         // want the scope to be destructed until after
         // removeAllChildren returns, so we guard ourselves with an
@@ -674,6 +680,10 @@ void Document::removedLastRef()
 #ifndef NDEBUG
         m_inRemovedLastRefFunction = false;
 #endif
+
+    	if (threadGlobalData().threadTimers().happensBefore().isCurrentEventActionValid()) {
+    		ActionLogScopeEnd();
+    	}
 
         guardDeref();
     } else {
@@ -1163,6 +1173,9 @@ void Document::setReadyState(ReadyState readyState)
             m_documentTiming.domComplete = monotonicallyIncreasingTime();
         break;
     }
+
+//    ActionLogFormat(ActionLog::WRITE_MEMORY, "DOMNode[%p].readyState",
+//    		static_cast<void*>(this));
 
     m_readyState = readyState;
     dispatchEvent(Event::create(eventNames().readystatechangeEvent, false, false));
@@ -1680,6 +1693,7 @@ bool Document::isPendingStyleRecalc() const
 
 void Document::styleRecalcTimerFired(Timer<Document>*)
 {
+	ActionLogScope log_scope("doc style recalc");
     updateStyleIfNeeded();
 }
 
@@ -2481,6 +2495,8 @@ void Document::implicitClose()
 
 void Document::setParsing(bool b)
 {
+	if (m_bParsing == true && b == false)
+		m_bParsingJoin.threadEndAction();
     m_bParsing = b;
     if (!m_bParsing && view())
         view()->scheduleRelayout();
@@ -5029,6 +5045,7 @@ void Document::cancelFocusAppearanceUpdate()
 
 void Document::updateFocusAppearanceTimerFired(Timer<Document>*)
 {
+	ActionLogScope log_scope("dom focus");
     Node* node = focusedNode();
     if (!node)
         return;
@@ -5121,10 +5138,16 @@ public:
         : documentReference(documentReference)
         , task(task)
     {
+    	if (threadGlobalData().threadTimers().happensBefore().isCurrentEventActionValid()) {
+    		startEventActionId = CurrentEventActionId();
+    	} else {
+    		startEventActionId = -1;
+    	}
     }
 
     RefPtr<DocumentWeakReference> documentReference;
     OwnPtr<ScriptExecutionContext::Task> task;
+    EventActionId startEventActionId;
 };
 
 void Document::didReceiveTask(void* untypedContext)
@@ -5144,6 +5167,14 @@ void Document::didReceiveTask(void* untypedContext)
         return;
     }
 
+	// Create a time slice.
+	threadGlobalData().threadTimers().happensBefore().setCurrentEventAction(
+			threadGlobalData().threadTimers().happensBefore().allocateEventActionId());
+	// Add happens before arc from the time slice where it was started.
+    if (context->startEventActionId != -1) {
+    	threadGlobalData().threadTimers().happensBefore().addExplicitArc(context->startEventActionId, CurrentEventActionId());
+    }
+
     context->task->performTask(document);
 }
 
@@ -5154,6 +5185,7 @@ void Document::postTask(PassOwnPtr<Task> task)
 
 void Document::pendingTasksTimerFired(Timer<Document>*)
 {
+	ActionLogScope log_scope("doc pending task");
     while (!m_pendingTasks.isEmpty()) {
         OwnPtr<Task> task = m_pendingTasks[0].release();
         m_pendingTasks.remove(0);
@@ -5762,6 +5794,7 @@ void Document::decrementLoadEventDelayCount()
 {
     ASSERT(m_loadEventDelayCount);
     --m_loadEventDelayCount;
+    m_loadEventDelayCountJoin.threadEndAction();
 
     if (frame() && !m_loadEventDelayCount && !m_loadEventDelayTimer.isActive())
         m_loadEventDelayTimer.startOneShot(0);
@@ -5769,6 +5802,7 @@ void Document::decrementLoadEventDelayCount()
 
 void Document::loadEventDelayTimerFired(Timer<Document>*)
 {
+	ActionLogScope log_scope("load_event_delay");
     if (frame())
         frame()->loader()->checkCompleted();
 }

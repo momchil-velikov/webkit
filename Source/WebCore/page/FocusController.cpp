@@ -56,6 +56,7 @@
 #include "ShadowRoot.h"
 #include "ShadowTree.h"
 #include "SpatialNavigation.h"
+#include "Timer.h"
 #include "Widget.h"
 #include "htmlediting.h" // For firstPositionInOrBeforeNode
 #include <limits>
@@ -244,6 +245,9 @@ void FocusController::setFocused(bool focused)
 {
     if (isFocused() == focused)
         return;
+
+    // SRL: Create a UI event action for a focus/blur event.
+    InstrumentedUIAction focusUIAction;
     
     m_isFocused = focused;
 

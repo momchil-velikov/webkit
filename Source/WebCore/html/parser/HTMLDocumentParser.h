@@ -156,6 +156,8 @@ private:
 
     bool m_endWasDelayed;
     unsigned m_pumpSessionNestingLevel;
+
+    EventActionId m_lastParseEventAction;
 };
 
 }

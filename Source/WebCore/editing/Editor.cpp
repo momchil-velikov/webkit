@@ -85,6 +85,7 @@
 #include "TextCheckingHelper.h"
 #include "TextEvent.h"
 #include "TextIterator.h"
+#include "Timer.h"
 #include "TypingCommand.h"
 #include "UserTypingGestureIndicator.h"
 #include "htmlediting.h"
@@ -644,6 +645,7 @@ void Editor::clearLastEditCommand()
 // the event handler NOT setting the return value to false
 bool Editor::dispatchCPPEvent(const AtomicString &eventType, ClipboardAccessPolicy policy)
 {
+	InstrumentedUIAction instrumentedUIAction;
     Node* target = findEventTargetFromSelection();
     if (!target)
         return true;

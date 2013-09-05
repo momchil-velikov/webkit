@@ -28,10 +28,109 @@
 #define ThreadTimers_h
 
 #include <wtf/Noncopyable.h>
+#include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
+
+#include "Timer.h"
+#include <stdio.h>
 
 namespace WebCore {
+
+	// Happens before graph for event actions.
+	class EventActionsHB {
+		WTF_MAKE_NONCOPYABLE(EventActionsHB); WTF_MAKE_FAST_ALLOCATED;
+	public:
+		EventActionsHB();
+		~EventActionsHB();
+
+		// Allocates a new id for an event action.
+		EventActionId allocateEventActionId();
+
+		void addExplicitArc(EventActionId earlier, EventActionId later);
+		void addTimedArc(EventActionId earlier, EventActionId later, double duration);
+
+		bool areInOrder(EventActionId first, EventActionId second);
+		bool haveAnyOrderRelation(EventActionId ea1, EventActionId ea2);
+
+		EventActionId currentEventAction() const {
+			return m_currentEventActionId;
+		}
+
+		// Allocates a new event action and enters in it.
+		EventActionId splitCurrentEventActionIfNotInScope();
+
+		void setCurrentEventAction(EventActionId newId);
+		void setCurrentEventActionInvalid();
+
+		bool isCurrentEventActionValid() const {
+			return !m_invalidEventAction;
+		}
+
+		void addDebugInfo(EventActionId eventActionId, const String& debug_info) {
+		}
+
+		EventActionId lastUIEventAction() const {
+			 return m_lastUIEventAction;
+		}
+
+		void checkInValidEventAction();
+
+		void userInterfaceModification();
+
+
+		// Network response slices can be started recursively and it's required that all started slices are eventually ended.
+		// Only one slice per network is allocated when multiple slices are started recursively.
+		EventActionId startNetworkResponseEventAction();
+		void finishNetworkReponseEventAction();
+
+		// UI actions can also be  started recursively like network actions and they all
+		// in the end belong to the same event action.
+		// UI and network actions can't be started inside each other.
+		EventActionId startUIAction();
+		void endUIAction();
+
+		// Timer slices can't be in a network or UI slice.
+		void setInTimerEventAction(bool inTimer);
+
+		void addDisableInstrumentationRequest() {
+			++m_numDisabledInstrumentationRequests;
+		}
+
+		void removeDisableInstrumentationRequest() {
+			--m_numDisabledInstrumentationRequests;
+		}
+
+		bool isInstrumentationDisabled() const {
+			return m_numDisabledInstrumentationRequests > 0;
+		}
+
+	private:
+		void addExtraTimeArcs(EventActionId earlier, EventActionId later, double duration);
+
+		struct TimerEvent {
+			TimerEvent() : m_parent(-1), m_time(0), m_wasEntered(false) {
+			}
+
+			EventActionId m_parent;
+			double m_time;
+			bool m_wasEntered;
+		};
+
+		EventActionId m_currentEventActionId;
+		bool m_invalidEventAction;
+
+		int m_networkResponseRecursion;
+		int m_uiActionRecursion;
+		bool m_inTimerEventAction;
+
+		Vector<TimerEvent> m_timerInfo;
+
+		EventActionId m_lastUIEventAction;
+
+		int m_numDisabledInstrumentationRequests;
+	};
 
     class SharedTimer;
     class TimerBase;
@@ -50,6 +149,8 @@ namespace WebCore {
         void updateSharedTimer();
         void fireTimersInNestedEventLoop();
 
+        EventActionsHB& happensBefore() { return m_eventActionsHB; }
+
     private:
         static void sharedTimerFired();
 
@@ -59,8 +160,9 @@ namespace WebCore {
         Vector<TimerBase*> m_timerHeap;
         SharedTimer* m_sharedTimer; // External object, can be a run loop on a worker thread. Normally set/reset by worker thread.
         bool m_firingTimers; // Reentrancy guard.
-    };
 
+        EventActionsHB m_eventActionsHB;
+    };
 }
 
 #endif

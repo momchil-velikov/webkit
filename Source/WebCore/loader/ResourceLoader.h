@@ -33,6 +33,7 @@
 #include "ResourceLoaderOptions.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
+#include "Timer.h"
 
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
@@ -144,6 +145,22 @@ namespace WebCore {
 
         void setShouldBufferData(DataBufferingPolicy);
 
+        // SRL: Methods for creating network response event actions.
+        void StartNetworkResponseEvent();
+        void EndNetworkResponseEvent();
+
+        class NetworkResponseScope {
+        public:
+        	NetworkResponseScope(ResourceLoader* parent) : m_parent(parent) {
+        		m_parent->StartNetworkResponseEvent();
+        	}
+        	~NetworkResponseScope() {
+        		m_parent->EndNetworkResponseEvent();
+        	}
+        private:
+        	ResourceLoader* m_parent;
+        };
+
     protected:
         ResourceLoader(Frame*, ResourceLoaderOptions);
 
@@ -182,6 +199,8 @@ namespace WebCore {
         bool m_defersLoading;
         ResourceRequest m_deferredRequest;
         ResourceLoaderOptions m_options;
+
+        EventActionId m_lastEventActionId;
     };
 
 inline const ResourceResponse& ResourceLoader::response() const

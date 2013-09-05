@@ -79,7 +79,7 @@ bool DocumentEventQueue::enqueueEvent(PassRefPtr<Event> event)
     ASSERT(event->target());
     bool wasAdded = m_queuedEvents.add(event).isNewEntry;
     ASSERT_UNUSED(wasAdded, wasAdded); // It should not have already been in the list.
-    
+
     if (!m_pendingEventTimer->isActive())
         m_pendingEventTimer->startOneShot(0);
 

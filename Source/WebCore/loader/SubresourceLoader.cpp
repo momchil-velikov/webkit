@@ -38,6 +38,7 @@
 #include "MemoryCache.h"
 #include "SecurityOrigin.h"
 #include "SecurityPolicy.h"
+#include <wtf/ActionLogReport.h>
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/CString.h>
@@ -145,21 +146,32 @@ void SubresourceLoader::willSendRequest(ResourceRequest& newRequest, const Resou
     // Store the previous URL because the call to ResourceLoader::willSendRequest will modify it.
     KURL previousURL = request().url();
     
+	// SRL: Create a network response event action.
+	StartNetworkResponseEvent();
     ResourceLoader::willSendRequest(newRequest, redirectResponse);
     if (!previousURL.isNull() && !newRequest.isNull() && previousURL != newRequest.url()) {
         if (!m_document->cachedResourceLoader()->canRequest(m_resource->type(), newRequest.url())) {
             cancel();
+            // SRL: Finish the event.
+            EndNetworkResponseEvent();
             return;
         }
         m_resource->willSendRequest(newRequest, redirectResponse);
     }
+    // SRL: Finish the event.
+    EndNetworkResponseEvent();
 }
 
 void SubresourceLoader::didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent)
 {
     ASSERT(m_state == Initialized);
     RefPtr<SubresourceLoader> protect(this);
+
+	// SRL: Create a network response event action.
+	StartNetworkResponseEvent();
     m_resource->didSendData(bytesSent, totalBytesToBeSent);
+    // SRL: Finish the event.
+    EndNetworkResponseEvent();
 }
 
 void SubresourceLoader::didReceiveResponse(const ResourceResponse& response)
@@ -175,9 +187,16 @@ void SubresourceLoader::didReceiveResponse(const ResourceResponse& response)
         if (response.httpStatusCode() == 304) {
             // 304 Not modified / Use local copy
             // Existing resource is ok, just use it updating the expiration time.
+
+        	// SRL: Create a network response event action.
+        	StartNetworkResponseEvent();
+        	ActionLogFormat(ActionLog::ENTER_SCOPE,
+        			"recv_304:%s", m_resource->url().lastPathComponent().ascii().data());
             memoryCache()->revalidationSucceeded(m_resource, response);
             if (!reachedTerminalState())
                 ResourceLoader::didReceiveResponse(response);
+            ActionLogScopeEnd();
+            EndNetworkResponseEvent();
             return;
         }
         // Did not get 304 response, continue as a regular resource load.
@@ -269,6 +288,8 @@ void SubresourceLoader::didFinishLoading(double finishTime)
     ASSERT(!m_resource->errorOccurred());
     LOG(ResourceLoading, "Received '%s'.", m_resource->url().string().latin1().data());
 
+    // SRL: Create a network response event action.
+	StartNetworkResponseEvent();
     RefPtr<SubresourceLoader> protect(this);
     CachedResourceHandle<CachedResource> protectResource(m_resource);
     m_state = Finishing;
@@ -276,6 +297,7 @@ void SubresourceLoader::didFinishLoading(double finishTime)
     m_resource->data(resourceData(), true);
     m_resource->finish();
     ResourceLoader::didFinishLoading(finishTime);
+    EndNetworkResponseEvent();
 }
 
 void SubresourceLoader::didFail(const ResourceError& error)
@@ -286,6 +308,8 @@ void SubresourceLoader::didFail(const ResourceError& error)
     ASSERT(!m_resource->resourceToRevalidate());
     LOG(ResourceLoading, "Failed to load '%s'.\n", m_resource->url().string().latin1().data());
 
+    // SRL: Create a network response event action.
+    StartNetworkResponseEvent();
     RefPtr<SubresourceLoader> protect(this);
     CachedResourceHandle<CachedResource> protectResource(m_resource);
     m_state = Finishing;
@@ -293,6 +317,7 @@ void SubresourceLoader::didFail(const ResourceError& error)
     if (!m_resource->isPreloaded())
         memoryCache()->remove(m_resource);
     ResourceLoader::didFail(error);
+    EndNetworkResponseEvent();
 }
 
 void SubresourceLoader::willCancel(const ResourceError&)

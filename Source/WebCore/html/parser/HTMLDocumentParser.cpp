@@ -40,6 +40,9 @@
 #include "InspectorInstrumentation.h"
 #include "NestingLevelIncrementer.h"
 #include "Settings.h"
+#include "Timer.h"
+#include "ThreadTimers.h"
+#include <wtf/ActionLogReport.h>
 
 namespace WebCore {
 
@@ -83,6 +86,7 @@ HTMLDocumentParser::HTMLDocumentParser(HTMLDocument* document, bool reportErrors
     , m_xssAuditor(this)
     , m_endWasDelayed(false)
     , m_pumpSessionNestingLevel(0)
+    , m_lastParseEventAction(-1)
 {
 }
 
@@ -95,6 +99,7 @@ HTMLDocumentParser::HTMLDocumentParser(DocumentFragment* fragment, Element* cont
     , m_xssAuditor(this)
     , m_endWasDelayed(false)
     , m_pumpSessionNestingLevel(0)
+    , m_lastParseEventAction(-1)
 {
     bool reportErrors = false; // For now document fragment parsing never reports errors.
     m_tokenizer->setState(tokenizerStateForContextElement(contextElement, reportErrors));
@@ -251,6 +256,9 @@ void HTMLDocumentParser::pumpTokenizer(SynchronousMode mode)
     // ASSERT that this object is both attached to the Document and protected.
     ASSERT(refCount() >= 2);
 
+    ActionLogScope log_scope(
+    		String::format("parse HTML[%s]", document()->documentURI().ascii().data()).ascii().data());
+
     PumpSession session(m_pumpSessionNestingLevel);
 
     // We tell the InspectorInstrumentation about every pump, even if we
@@ -259,6 +267,19 @@ void HTMLDocumentParser::pumpTokenizer(SynchronousMode mode)
     // end up parsing the whole buffer in this pump.  We should pass how
     // much we parsed as part of didWriteHTML instead of willWriteHTML.
     InspectorInstrumentationCookie cookie = InspectorInstrumentation::willWriteHTML(document(), m_input.current().length(), m_tokenizer->lineNumber().zeroBasedInt());
+
+    // Note(veselin): We order pops from the queue with happens before, but
+    // HTML modifications with scripts are a special case. They could be
+    // triggered by events that do not participate in the same parsing order.
+    // We recognize them by the insertion point and in this case, we omit the
+    // happens before arc.
+    if (!m_input.hasInsertionPoint()) {
+    	EventActionId currentEventAction = CurrentEventActionId();
+    	if (m_lastParseEventAction != -1 && m_lastParseEventAction != currentEventAction) {
+    		threadGlobalData().threadTimers().happensBefore().addExplicitArc(m_lastParseEventAction, currentEventAction);
+    	}
+    	m_lastParseEventAction = currentEventAction;
+    }
 
     while (canTakeNextToken(mode, session) && !session.needsYield) {
         if (!isParsingFragment())
@@ -277,6 +298,13 @@ void HTMLDocumentParser::pumpTokenizer(SynchronousMode mode)
 
         m_treeBuilder->constructTreeFromToken(m_token);
         ASSERT(m_token.isUninitialized());
+
+        // SRL: We yield after every single token to split the parsing of every
+        // element into its own event action.
+        if (mode == AllowYield) {
+       		session.needsYield = true;
+       		break;
+        }
     }
 
     // Ensure we haven't been totally deref'ed after pumping. Any caller of this

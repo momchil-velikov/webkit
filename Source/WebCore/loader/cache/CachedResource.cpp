@@ -41,6 +41,8 @@
 #include "ResourceLoadScheduler.h"
 #include "SharedBuffer.h"
 #include "SubresourceLoader.h"
+#include "ThreadTimers.h"
+#include <wtf/ActionLogReport.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/MathExtras.h>
 #include <wtf/RefCountedLeakCounter.h>
@@ -244,8 +246,10 @@ void CachedResource::checkNotify()
         return;
 
     CachedResourceClientWalker<CachedResourceClient> w(m_clients);
-    while (CachedResourceClient* c = w.next())
+    while (CachedResourceClient* c = w.next()) {
+    	ActionLogFormat(ActionLog::READ_MEMORY, "CachedResource-%p-%p", this, c);
         c->notifyFinished(this);
+    }
 }
 
 void CachedResource::data(PassRefPtr<SharedBuffer>, bool allDataReceived)
@@ -384,6 +388,12 @@ void CachedResource::addClient(CachedResourceClient* client)
 void CachedResource::didAddClient(CachedResourceClient* c)
 {
     if (m_clientsAwaitingCallback.contains(c)) {
+    	// SRL: Use a memory location of type CachedResource and report a write on it.
+    	// This is an ad-hoc synchonization that the eventracer raceanalyzer will convert
+    	// to a happens-before edge.
+    	if (threadGlobalData().threadTimers().happensBefore().isCurrentEventActionValid()) {
+    		ActionLogFormat(ActionLog::WRITE_MEMORY, "CachedResource-%p-%p", this, c);
+    	}
         m_clients.add(c);
         m_clientsAwaitingCallback.remove(c);
     }
@@ -416,6 +426,12 @@ bool CachedResource::addClientToSet(CachedResourceClient* client)
         return false;
     }
 
+	// SRL: Use a memory location of type CachedResource and report a write on it.
+	// This is an ad-hoc synchonization that the eventracer raceanalyzer will convert
+	// to a happens-before edge.
+    if (threadGlobalData().threadTimers().happensBefore().isCurrentEventActionValid()) {
+    	ActionLogFormat(ActionLog::WRITE_MEMORY, "CachedResource-%p-%p", this, client);
+    }
     m_clients.add(client);
     return true;
 }
@@ -776,6 +792,8 @@ void CachedResource::CachedResourceCallback::cancel()
 
 void CachedResource::CachedResourceCallback::timerFired(Timer<CachedResourceCallback>*)
 {
+	// SRL: Log as debug info that the info was extracted from the cache.
+	ActionLogScope log_scope("cached_resource");
     m_resource->didAddClient(m_client);
 }
 

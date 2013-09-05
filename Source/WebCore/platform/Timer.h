@@ -28,8 +28,58 @@
 
 #include <wtf/Noncopyable.h>
 #include <wtf/Threading.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
+
+// Ids for event actions.
+typedef int EventActionId;
+
+// Returns the id of the current event action.
+EventActionId CurrentEventActionId();
+
+// Declares a UI modification.
+void UserInterfaceModification();
+
+// Declares a UI event action.
+class InstrumentedUIAction {
+	WTF_MAKE_NONCOPYABLE(InstrumentedUIAction); WTF_MAKE_FAST_ALLOCATED;
+public:
+	InstrumentedUIAction();
+	~InstrumentedUIAction();
+};
+
+// Class to instrument ad-hoc synchronization in WebKit and obtain happens-before.
+class MultiJoinHappensBefore {
+	WTF_MAKE_NONCOPYABLE(MultiJoinHappensBefore); WTF_MAKE_FAST_ALLOCATED;
+public:
+	MultiJoinHappensBefore();
+	~MultiJoinHappensBefore();
+
+	// Must be called from every event action that sets an internal WebKit
+	// ad-hoc synchronization variable.
+	void threadEndAction();
+
+	// Must be called from the internal WebKit ad-hoc that waits for all
+	// threadEndAction(s) to finish.
+	void joinAction();
+
+private:
+	struct LList {
+		LList(int id, LList* next) : m_id(id), m_next(next) {}
+		EventActionId m_id;
+		LList* m_next;
+	};
+
+	bool m_joined;
+	LList* m_endThreads;
+};
+
+class DisabledInstrumentation {
+public:
+	DisabledInstrumentation();
+	~DisabledInstrumentation();
+};
 
 // Time intervals are all in seconds.
 
@@ -40,6 +90,10 @@ class TimerBase {
 public:
     TimerBase();
     virtual ~TimerBase();
+
+    void ignoreFireIntervalForHappensBefore() {
+    	m_ignoreFireIntervalForHappensBefore = true;
+    }
 
     void start(double nextFireInterval, double repeatInterval);
 
@@ -52,7 +106,7 @@ public:
     double nextFireInterval() const;
     double repeatInterval() const { return m_repeatInterval; }
 
-    void augmentFireInterval(double delta) { setNextFireTime(m_nextFireTime + delta); }
+    void augmentFireInterval(double delta) { setNextFireTime(m_nextFireTime + delta, delta); }
     void augmentRepeatInterval(double delta) { augmentFireInterval(delta); m_repeatInterval += delta; }
 
     static void fireTimersInNestedEventLoop();
@@ -63,7 +117,7 @@ private:
     void checkConsistency() const;
     void checkHeapIndex() const;
 
-    void setNextFireTime(double);
+    void setNextFireTime(double, double);
 
     bool inHeap() const { return m_heapIndex != -1; }
 
@@ -79,6 +133,11 @@ private:
     double m_repeatInterval; // 0 if not repeating
     int m_heapIndex; // -1 if not in heap
     unsigned m_heapInsertionOrder; // Used to keep order among equal-fire-time timers
+
+    EventActionId m_lastFireEventAction;
+    EventActionId m_starterEventAction;
+    double m_nextFireInterval;  // The interval for which the next file was set to.
+    bool m_ignoreFireIntervalForHappensBefore;
 
 #ifndef NDEBUG
     ThreadIdentifier m_thread;

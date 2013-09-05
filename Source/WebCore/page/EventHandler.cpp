@@ -81,6 +81,7 @@
 #include "UserTypingGestureIndicator.h"
 #include "WheelEvent.h"
 #include "WindowsKeyboardCodes.h"
+#include <wtf/ActionLogReport.h>
 #include <wtf/Assertions.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/StdLibExtras.h>
@@ -1037,6 +1038,9 @@ DragSourceAction EventHandler::updateDragSourceActionsAllowed() const
     
 HitTestResult EventHandler::hitTestResultAtPoint(const LayoutPoint& point, bool allowShadowContent, bool ignoreClipping, HitTestScrollbars testScrollbars, HitTestRequest::HitTestRequestType hitType, const LayoutSize& padding)
 {
+	// SRL: New event action.
+	InstrumentedUIAction instrumentedUIAction;
+	ActionLogScope log_scope("eh:hittest");
     enum ShadowContentFilterPolicy shadowContentFilterPolicy = allowShadowContent ? AllowShadowContent : DoNotAllowShadowContent;
     HitTestResult result(point, padding.height(), padding.width(), padding.height(), padding.width(), shadowContentFilterPolicy);
 
@@ -1192,6 +1196,9 @@ bool EventHandler::logicalScrollOverflow(ScrollLogicalDirection direction, Scrol
 
 bool EventHandler::scrollRecursively(ScrollDirection direction, ScrollGranularity granularity, Node* startingNode)
 {
+	// SRL: New event action.
+	InstrumentedUIAction instrumentedUIAction;
+	ActionLogScope log_scope("eh:scroll");
     // The layout needs to be up to date to determine if we can scroll. We may be
     // here because of an onLoad event, in which case the final layout hasn't been performed yet.
     m_frame->document()->updateLayoutIgnorePendingStylesheets();
@@ -1479,6 +1486,9 @@ Node* EventHandler::targetNode(const HitTestResult& hitTestResult)
 
 bool EventHandler::handleMousePressEvent(const PlatformMouseEvent& mouseEvent)
 {
+	// SRL: New event action.
+	InstrumentedUIAction instrumentedUIAction;
+	ActionLogScope log_scope("eh:mousepress");
     RefPtr<FrameView> protector(m_frame->view());
 
 #if ENABLE(TOUCH_EVENTS)
@@ -1671,6 +1681,9 @@ static RenderLayer* layerForNode(Node* node)
 
 bool EventHandler::mouseMoved(const PlatformMouseEvent& event)
 {
+	// SRL: New event action.
+	InstrumentedUIAction instrumentedUIAction;
+	ActionLogScope log_scope("eh:mousemove");
     MaximumDurationTracker maxDurationTracker(&m_maxMouseMovedDuration);
     RefPtr<FrameView> protector(m_frame->view());
 
@@ -1827,6 +1840,9 @@ void EventHandler::invalidateClick()
 
 bool EventHandler::handleMouseReleaseEvent(const PlatformMouseEvent& mouseEvent)
 {
+	// SRL: New event action.
+	InstrumentedUIAction instrumentedUIAction;
+	ActionLogScope log_scope("eh:mouserelease");
     RefPtr<FrameView> protector(m_frame->view());
 
 #if ENABLE(TOUCH_EVENTS)
@@ -2285,6 +2301,9 @@ bool EventHandler::shouldTurnVerticalTicksIntoHorizontal(const HitTestResult&) c
 
 bool EventHandler::handleWheelEvent(const PlatformWheelEvent& e)
 {
+	// SRL: New event action.
+	InstrumentedUIAction instrumentedUIAction;
+	ActionLogScope log_scope("eh:wheel");
     Document* doc = m_frame->document();
 
     RenderObject* docRenderer = doc->renderer();
@@ -2499,6 +2518,8 @@ bool EventHandler::bestZoomableAreaForTouchPoint(const IntPoint& touchCenter, co
 #if ENABLE(CONTEXT_MENUS)
 bool EventHandler::sendContextMenuEvent(const PlatformMouseEvent& event)
 {
+	// SRL: New event action.
+	InstrumentedUIAction contentMenuAction;
     Document* doc = m_frame->document();
     FrameView* v = m_frame->view();
     if (!v)
@@ -2526,6 +2547,8 @@ bool EventHandler::sendContextMenuEvent(const PlatformMouseEvent& event)
 
 bool EventHandler::sendContextMenuEventForKey()
 {
+	// SRL: New event action.
+	InstrumentedUIAction contentMenuAction;
     FrameView* view = m_frame->view();
     if (!view)
         return false;
@@ -2736,6 +2759,9 @@ bool EventHandler::isKeyEventAllowedInFullScreen(const PlatformKeyboardEvent& ke
 
 bool EventHandler::keyEvent(const PlatformKeyboardEvent& initialKeyEvent)
 {
+	// SRL: New event action.
+	InstrumentedUIAction instrumentedUIAction;
+	ActionLogScope log_scope("eh:key");
     RefPtr<FrameView> protector(m_frame->view()); 
 
 #if ENABLE(FULLSCREEN_API)

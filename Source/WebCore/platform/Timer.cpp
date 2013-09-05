@@ -33,9 +33,11 @@
 #include <limits.h>
 #include <limits>
 #include <math.h>
+#include <wtf/ActionLogReport.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
+#include <stdio.h>
 
 using namespace std;
 
@@ -53,6 +55,77 @@ class TimerHeapReference;
 static Vector<TimerBase*>& timerHeap()
 {
     return threadGlobalData().threadTimers().timerHeap();
+}
+
+EventActionId CurrentEventActionId() {
+	threadGlobalData().threadTimers().happensBefore().checkInValidEventAction();
+	return threadGlobalData().threadTimers().happensBefore().currentEventAction();
+}
+
+void UserInterfaceModification() {
+	threadGlobalData().threadTimers().happensBefore().userInterfaceModification();
+}
+
+InstrumentedUIAction::InstrumentedUIAction() {
+	threadGlobalData().threadTimers().happensBefore().startUIAction();
+}
+
+InstrumentedUIAction::~InstrumentedUIAction() {
+	threadGlobalData().threadTimers().happensBefore().endUIAction();
+}
+
+
+MultiJoinHappensBefore::MultiJoinHappensBefore() : m_joined(false), m_endThreads(NULL) {
+}
+
+MultiJoinHappensBefore::~MultiJoinHappensBefore() {
+	while (m_endThreads != NULL) {
+		LList* next = m_endThreads->m_next;
+		delete m_endThreads;
+		m_endThreads = next;
+	}
+}
+
+void MultiJoinHappensBefore::threadEndAction() {
+	threadGlobalData().threadTimers().happensBefore().checkInValidEventAction();
+	m_endThreads = new LList(CurrentEventActionId(), m_endThreads);
+}
+
+void MultiJoinHappensBefore::joinAction() {
+	if (m_joined) {
+	// It's possible to join multiple threads to one thread.
+	//	WTFReportBacktrace();
+	}
+	m_joined = true;
+
+	if (m_endThreads == NULL) {
+		// There are 0 threads to join. Nothing to do.
+		return;
+	}
+
+	// Note(veselin): We do not allocate a timeslice here, but use the current one (otherwise
+	// manipulating the document history causes problems).
+	// TimeSliceId joinSlice = threadGlobalData().threadTimers().happensBefore().allocateTimeSlice();
+	// threadGlobalData().threadTimers().happensBefore().setCurrentTimeSlice(joinSlice);
+
+	threadGlobalData().threadTimers().happensBefore().checkInValidEventAction();
+	EventActionId joinSlice = threadGlobalData().threadTimers().happensBefore().currentEventAction();
+	LList* curr = m_endThreads;
+	while (curr != NULL) {
+		if (curr->m_id != joinSlice) {
+			threadGlobalData().threadTimers().happensBefore().addExplicitArc(
+					curr->m_id, joinSlice);
+		}
+		curr = curr->m_next;
+	}
+}
+
+DisabledInstrumentation::DisabledInstrumentation() {
+	threadGlobalData().threadTimers().happensBefore().addDisableInstrumentationRequest();
+}
+
+DisabledInstrumentation::~DisabledInstrumentation() {
+	threadGlobalData().threadTimers().happensBefore().removeDisableInstrumentationRequest();
 }
 
 // ----------------
@@ -194,6 +267,8 @@ TimerBase::TimerBase()
     : m_nextFireTime(0)
     , m_repeatInterval(0)
     , m_heapIndex(-1)
+    , m_lastFireEventAction(0)
+    , m_ignoreFireIntervalForHappensBefore(false)
 #ifndef NDEBUG
     , m_thread(currentThread())
 #endif
@@ -203,6 +278,13 @@ TimerBase::TimerBase()
 TimerBase::~TimerBase()
 {
     stop();
+    if (m_lastFireEventAction != 0 &&
+        threadGlobalData().threadTimers().happensBefore().isCurrentEventActionValid()) {
+    	if (m_lastFireEventAction != CurrentEventActionId()) {
+    		threadGlobalData().threadTimers().happensBefore().addExplicitArc(
+    				m_lastFireEventAction, CurrentEventActionId());
+    	}
+    }
     ASSERT(!inHeap());
 }
 
@@ -211,7 +293,7 @@ void TimerBase::start(double nextFireInterval, double repeatInterval)
     ASSERT(m_thread == currentThread());
 
     m_repeatInterval = repeatInterval;
-    setNextFireTime(monotonicallyIncreasingTime() + nextFireInterval);
+    setNextFireTime(monotonicallyIncreasingTime() + nextFireInterval, nextFireInterval);
 }
 
 void TimerBase::stop()
@@ -219,7 +301,7 @@ void TimerBase::stop()
     ASSERT(m_thread == currentThread());
 
     m_repeatInterval = 0;
-    setNextFireTime(0);
+    setNextFireTime(0, 0);
 
     ASSERT(m_nextFireTime == 0);
     ASSERT(m_repeatInterval == 0);
@@ -312,17 +394,29 @@ void TimerBase::heapPopMin()
     ASSERT(this == timerHeap().last());
 }
 
-void TimerBase::setNextFireTime(double newTime)
+void TimerBase::setNextFireTime(double newTime, double interval)
 {
     ASSERT(m_thread == currentThread());
 
     // Keep heap valid while changing the next-fire time.
     double oldTime = m_nextFireTime;
     if (oldTime != newTime) {
+    	if (newTime != 0) {
+    		m_nextFireInterval = interval;
+    		if (threadGlobalData().threadTimers().happensBefore().isCurrentEventActionValid()) {
+   				m_starterEventAction = CurrentEventActionId();
+    		} else {
+    			// Unfortunately, there are bad cases in WebKit that start load timers during OnPaint events.
+    			// We attribute them to the last UI action.
+    			// WTFReportBacktrace();
+    			m_starterEventAction = threadGlobalData().threadTimers().happensBefore().lastUIEventAction();
+    		}
+    		ActionLogTriggerEvent(this);
+    	}
+
         m_nextFireTime = newTime;
         static unsigned currentHeapInsertionOrder;
         m_heapInsertionOrder = currentHeapInsertionOrder++;
-
         bool wasFirstTimerInHeap = m_heapIndex == 0;
 
         if (oldTime == 0)

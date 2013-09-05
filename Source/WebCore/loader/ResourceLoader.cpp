@@ -45,6 +45,10 @@
 #include "SecurityOrigin.h"
 #include "Settings.h"
 #include "SharedBuffer.h"
+#include "ThreadGlobalData.h"
+#include "ThreadTimers.h"
+#include "Timer.h"
+#include <wtf/ActionLogReport.h>
 
 namespace WebCore {
 
@@ -63,7 +67,16 @@ ResourceLoader::ResourceLoader(Frame* frame, ResourceLoaderOptions options)
     , m_notifiedLoadComplete(false)
     , m_defersLoading(frame->page()->defersLoading())
     , m_options(options)
+    , m_lastEventActionId(-1)
 {
+	// SRL: Set which is the first slice of a resource.
+	if (!threadGlobalData().threadTimers().happensBefore().isCurrentEventActionValid()) {
+		// Create a timeslice. Usually this happens when a resource is part of css and
+		// then it may be loaded from a layout computation. We can't do much for it.
+		threadGlobalData().threadTimers().happensBefore().setCurrentEventAction(
+				threadGlobalData().threadTimers().happensBefore().allocateEventActionId());
+	}
+	m_lastEventActionId = CurrentEventActionId();
 }
 
 ResourceLoader::~ResourceLoader()
@@ -110,6 +123,9 @@ bool ResourceLoader::init(const ResourceRequest& r)
     ASSERT(m_request.isNull());
     ASSERT(m_deferredRequest.isNull());
     ASSERT(!m_documentLoader->isSubstituteLoadPending(this));
+
+    // SRL: Start resource loading with the current time slice.
+    m_lastEventActionId = CurrentEventActionId();
     
     ResourceRequest clientRequest(r);
     
@@ -145,6 +161,19 @@ void ResourceLoader::start()
     ASSERT(!m_handle);
     ASSERT(!m_request.isNull());
     ASSERT(m_deferredRequest.isNull());
+
+    // SRL: If this is loaded from CSS.
+	if (!threadGlobalData().threadTimers().happensBefore().isCurrentEventActionValid()) {
+		// Create a timeslice. Usually this happens when a resource is part of css and
+		// then it may be loaded from a layout computation. We can't do much for it.
+		threadGlobalData().threadTimers().happensBefore().setCurrentEventAction(
+				threadGlobalData().threadTimers().happensBefore().allocateEventActionId());
+	}
+    // SRL: Log that this is a start of a resource loading.
+    ActionLogScope log_scope(
+    		String::format("load_start:%s", m_request.url().lastPathComponent().ascii().data()).ascii().data());
+
+    m_lastEventActionId = CurrentEventActionId();
 
 #if ENABLE(WEB_ARCHIVE) || ENABLE(MHTML)
     if (m_documentLoader->scheduleArchiveLoad(this, m_request, m_request.url()))
@@ -253,12 +282,23 @@ void ResourceLoader::didReceiveResponse(const ResourceResponse& r)
     if (FormData* data = m_request.httpBody())
         data->removeGeneratedFilesIfNeeded();
         
-    if (m_options.sendLoadCallbacks == SendCallbacks)
+    if (m_options.sendLoadCallbacks == SendCallbacks) {
+    	// SRL: Log a new event action for the network response. We do not need to log empty
+    	// actions so we do this only in case there is callback (possibly running JavaScript).
+    	StartNetworkResponseEvent();
+    	ActionLogFormat(ActionLog::ENTER_SCOPE,
+    			"recv_resp:%s", m_request.url().lastPathComponent().ascii().data());
         frameLoader()->notifier()->didReceiveResponse(this, m_response);
+        ActionLogScopeEnd();
+        EndNetworkResponseEvent();
+    }
 }
 
 void ResourceLoader::didReceiveData(const char* data, int length, long long encodedDataLength, bool allAtOnce)
 {
+	// SRL: Log a new event action for the received data. We do this in the beginning of the method,
+	// since addData may call a network callback.
+    StartNetworkResponseEvent();
     // The following assertions are not quite valid here, since a subclass
     // might override didReceiveData in a way that invalidates them. This
     // happens with the steps listed in 3266216
@@ -273,8 +313,14 @@ void ResourceLoader::didReceiveData(const char* data, int length, long long enco
     // FIXME: If we get a resource with more than 2B bytes, this code won't do the right thing.
     // However, with today's computers and networking speeds, this won't happen in practice.
     // Could be an issue with a giant local file.
-    if (m_options.sendLoadCallbacks == SendCallbacks && m_frame)
+    if (m_options.sendLoadCallbacks == SendCallbacks && m_frame) {
+    	ActionLogScope log_scope(
+        		String::format("recv_data:%s",
+        				m_request.url().lastPathComponent().ascii().data()).ascii().data());
         frameLoader()->notifier()->didReceiveData(this, data, length, static_cast<int>(encodedDataLength));
+    }
+    // SRL: Event network response event needs explicit end.
+    EndNetworkResponseEvent();
 }
 
 void ResourceLoader::willStopBufferingData(const char* data, int length)
@@ -294,7 +340,10 @@ void ResourceLoader::didFinishLoading(double finishTime)
         return;
     ASSERT(!m_reachedTerminalState);
 
+    // SRL: Start an event. Could call readyStateChange callback.
+	StartNetworkResponseEvent();
     didFinishLoadingOnePart(finishTime);
+    EndNetworkResponseEvent();
     releaseResources();
 }
 
@@ -307,8 +356,13 @@ void ResourceLoader::didFinishLoadingOnePart(double finishTime)
     if (m_notifiedLoadComplete)
         return;
     m_notifiedLoadComplete = true;
-    if (m_options.sendLoadCallbacks == SendCallbacks)
+    if (m_options.sendLoadCallbacks == SendCallbacks) {
+    	// SRL: Log end of network response.
+    	ActionLogScope log_scope(
+        		String::format("finish_load:%s",
+        				m_request.url().lastPathComponent().ascii().data()).ascii().data());
         frameLoader()->notifier()->didFinishLoad(this, finishTime);
+    }
 }
 
 void ResourceLoader::didFail(const ResourceError& error)
@@ -326,8 +380,15 @@ void ResourceLoader::didFail(const ResourceError& error)
 
     if (!m_notifiedLoadComplete) {
         m_notifiedLoadComplete = true;
+
+        // SRL: Log that an atomic action is generated with a load failure.
+    	StartNetworkResponseEvent();
+    	ActionLogFormat(ActionLog::ENTER_SCOPE,
+    			"failed:%s", m_request.url().lastPathComponent().ascii().data());
         if (m_options.sendLoadCallbacks == SendCallbacks)
             frameLoader()->notifier()->didFailToLoad(this, error);
+        ActionLogScopeEnd();
+        EndNetworkResponseEvent();
     }
 
     releaseResources();
@@ -375,8 +436,15 @@ void ResourceLoader::cancel(const ResourceError& error)
             m_handle = 0;
         }
 
-        if (m_options.sendLoadCallbacks == SendCallbacks && m_identifier && !m_notifiedLoadComplete)
+        if (m_options.sendLoadCallbacks == SendCallbacks && m_identifier && !m_notifiedLoadComplete) {
+        	// SRL: Cancel is usually sent from a UI action and not a network event itself.
+        	// StartNetworkResponseEvent();
+        	ActionLogScope log_scope(
+            		String::format("cancel_fail:%s",
+            				m_request.url().lastPathComponent().ascii().data()).ascii().data());
             frameLoader()->notifier()->didFailToLoad(this, nonNullError);
+            // EndNetworkResponseEvent();
+        }
     }
 
     // If cancel() completed from within the call to willCancel() or didFailToLoad(),
@@ -425,9 +493,12 @@ void ResourceLoader::didReceiveResponse(ResourceHandle*, const ResourceResponse&
 
 void ResourceLoader::didReceiveData(ResourceHandle*, const char* data, int length, int encodedDataLength)
 {
+	// SRL: Instrument receiving data as an event action.
+	StartNetworkResponseEvent();
     InspectorInstrumentationCookie cookie = InspectorInstrumentation::willReceiveResourceData(m_frame.get(), identifier());
     didReceiveData(data, length, encodedDataLength, false);
     InspectorInstrumentation::didReceiveResourceData(cookie);
+    EndNetworkResponseEvent();
 }
 
 void ResourceLoader::didFinishLoading(ResourceHandle*, double finishTime)
@@ -470,7 +541,14 @@ void ResourceLoader::didReceiveAuthenticationChallenge(const AuthenticationChall
 
     if (m_options.allowCredentials == AllowStoredCredentials) {
         if (m_options.crossOriginCredentialPolicy == AskClientForCrossOriginCredentials || m_frame->document()->securityOrigin()->canRequest(originalRequest().url())) {
+        	// SRL: Event action for https request.
+        	StartNetworkResponseEvent();
+        	ActionLogFormat(ActionLog::ENTER_SCOPE,
+            		"auth_recv:%s",
+            		m_request.url().lastPathComponent().ascii().data());
             frameLoader()->notifier()->didReceiveAuthenticationChallenge(this, challenge);
+            ActionLogScopeEnd();
+            EndNetworkResponseEvent();
             return;
         }
     }
@@ -489,7 +567,14 @@ void ResourceLoader::didCancelAuthenticationChallenge(const AuthenticationChalle
     // Protect this in this delegate method since the additional processing can do
     // anything including possibly derefing this; one example of this is Radar 3266216.
     RefPtr<ResourceLoader> protector(this);
+    // SRL: Event action for https.
+    StartNetworkResponseEvent();
+    ActionLogFormat(ActionLog::ENTER_SCOPE,
+    		"cancel_auth:%s",
+    		m_request.url().lastPathComponent().ascii().data());
     frameLoader()->notifier()->didCancelAuthenticationChallenge(this, challenge);
+    ActionLogScopeEnd();
+    EndNetworkResponseEvent();
 }
 
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
@@ -513,7 +598,7 @@ void ResourceLoader::willCacheResponse(ResourceHandle*, CacheStoragePolicy& poli
     // We think that any frame without a page shouldn't have any loads happening in it, yet
     // there is at least one code path where that is not true.
     ASSERT(m_frame->settings());
-    
+
     // When in private browsing mode, prevent caching to disk
     if (policy == StorageAllowed && m_frame->settings() && m_frame->settings()->privateBrowsingEnabled())
         policy = StorageAllowedInMemoryOnly;    
@@ -526,5 +611,21 @@ AsyncFileStream* ResourceLoader::createAsyncFileStream(FileStreamClient* client)
     return AsyncFileStream::create(m_frame->document()->scriptExecutionContext(), client).get();
 }
 #endif
+
+// SRL: Starts a network event action. EndNetworkResponseEvent must be called in the same event.
+void ResourceLoader::StartNetworkResponseEvent() {
+	EventActionId newEventActionId = threadGlobalData().threadTimers().happensBefore().startNetworkResponseEventAction();
+	if (newEventActionId != m_lastEventActionId) {
+		threadGlobalData().threadTimers().happensBefore().addExplicitArc(m_lastEventActionId, newEventActionId);
+		m_lastEventActionId = newEventActionId;
+	}
+}
+
+// SRL: Ends an event action started with StartNetworkResponseEvent.
+void ResourceLoader::EndNetworkResponseEvent() {
+	m_lastEventActionId = threadGlobalData().threadTimers().happensBefore().currentEventAction();
+	threadGlobalData().threadTimers().happensBefore().finishNetworkReponseEventAction();
+}
+
 
 }

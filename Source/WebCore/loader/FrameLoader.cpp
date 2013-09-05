@@ -99,8 +99,10 @@
 #include "SerializedScriptValue.h"
 #include "Settings.h"
 #include "TextResourceDecoder.h"
+#include "Timer.h"
 #include "WindowFeatures.h"
 #include "XMLDocumentParser.h"
+#include <wtf/ActionLogReport.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/CString.h>
@@ -212,6 +214,8 @@ FrameLoader::~FrameLoader()
 
 void FrameLoader::init()
 {
+	// SRL: Instrument as an UI action since frames are loaded by clicking Open/Refresh or some other browser UI element.
+	InstrumentedUIAction instrumentedUIAction;
     // This somewhat odd set of steps gives the frame an initial empty document.
     // It would be better if this could be done with even fewer steps.
     m_stateMachine.advanceTo(FrameLoaderStateMachine::CreatingInitialEmptyDocument);
@@ -351,6 +355,8 @@ void FrameLoader::submitForm(PassRefPtr<FormSubmission> submission)
 
 void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy)
 {
+	// SRL: Instrument as an UI action since this happens by pressing the Stop browser button.
+	InstrumentedUIAction instrumentedUIAction;
     if (m_frame->document() && m_frame->document()->parser())
         m_frame->document()->parser()->stopParsing();
 
@@ -702,8 +708,20 @@ void FrameLoader::checkCompleted()
     if (!allChildrenAreComplete())
         return;
 
+    // SRL: Include the join happens before relations.
+    m_frame->document()->parsingJoin();
+    m_frame->document()->cachedResourceLoader()->requestCountJoin();
+    m_frame->document()->delayingLoadEventJoin();
+    for (Frame* child = m_frame->tree()->firstChild(); child; child = child->tree()->nextSibling()) {
+    	if (child->loader() != this) {
+    		child->loader()->m_isCompleteJoin.joinAction();
+    	}
+    }
+
     // OK, completed.
     m_isComplete = true;
+    // SRL: Notify any parent that the current frame is finished.
+    m_isCompleteJoin.threadEndAction();
     m_requestedHistoryItem = 0;
     m_frame->document()->setReadyState(Document::Complete);
 
@@ -1314,6 +1332,8 @@ void FrameLoader::load(DocumentLoader* newDocumentLoader)
 
 void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType type, PassRefPtr<FormState> prpFormState)
 {
+	// SRL: UI action since it comes from a browser UI element.
+	InstrumentedUIAction instrumentedUIAction;
     // Retain because dispatchBeforeLoadEvent may release the last reference to it.
     RefPtr<Frame> protect(m_frame);
 
@@ -2320,28 +2340,36 @@ void FrameLoader::frameDetached()
 
 void FrameLoader::detachFromParent()
 {
-    RefPtr<Frame> protect(m_frame);
+	// SRL: UI action since it is from a browser UI (typically pressing the close button).
+	bool save_action_log = false;
+	{
+		InstrumentedUIAction closeFrameUIAction;
+		RefPtr<Frame> protect(m_frame);
 
-    closeURL();
-    history()->saveScrollPositionAndViewStateToItem(history()->currentItem());
-    detachChildren();
-    // stopAllLoaders() needs to be called after detachChildren(), because detachedChildren()
-    // will trigger the unload event handlers of any child frames, and those event
-    // handlers might start a new subresource load in this frame.
-    stopAllLoaders();
+		closeURL();
+		history()->saveScrollPositionAndViewStateToItem(history()->currentItem());
+		detachChildren();
+		// stopAllLoaders() needs to be called after detachChildren(), because detachedChildren()
+		// will trigger the unload event handlers of any child frames, and those event
+		// handlers might start a new subresource load in this frame.
+		stopAllLoaders();
 
-    InspectorInstrumentation::frameDetachedFromParent(m_frame);
+		InspectorInstrumentation::frameDetachedFromParent(m_frame);
 
-    detachViewsAndDocumentLoader();
+		detachViewsAndDocumentLoader();
 
-    if (Frame* parent = m_frame->tree()->parent()) {
-        parent->loader()->closeAndRemoveChild(m_frame);
-        parent->loader()->scheduleCheckCompleted();
-    } else {
-        m_frame->setView(0);
-        m_frame->willDetachPage();
-        m_frame->detachFromPage();
-    }
+		if (Frame* parent = m_frame->tree()->parent()) {
+			parent->loader()->closeAndRemoveChild(m_frame);
+			parent->loader()->scheduleCheckCompleted();
+		} else {
+			m_frame->setView(0);
+			m_frame->willDetachPage();
+			m_frame->detachFromPage();
+			// SRL: If this is the last page's shutdown, save the action log.
+			save_action_log = true;
+		}
+	}
+	if (save_action_log) ActionLogSave();
 }
 
 void FrameLoader::detachViewsAndDocumentLoader()

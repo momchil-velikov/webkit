@@ -31,6 +31,7 @@
 #include "Element.h"
 #include "PendingScript.h"
 #include "ScriptElement.h"
+#include <wtf/ActionLogReport.h>
 
 namespace WebCore {
 
@@ -69,6 +70,8 @@ void ScriptRunner::queueScriptForExecution(ScriptElement* scriptElement, CachedR
 
     case IN_ORDER_EXECUTION:
         m_scriptsToExecuteInOrder.append(PendingScript(element, cachedScript.get()));
+        ActionLogFormat(ActionLog::WRITE_MEMORY, "ScriptRunner-%p-%p",
+        		static_cast<void*>(this), static_cast<void*>(scriptElement));
         break;
     }
 }
@@ -96,11 +99,14 @@ void ScriptRunner::notifyScriptReady(ScriptElement* scriptElement, ExecutionType
         ASSERT(!m_scriptsToExecuteInOrder.isEmpty());
         break;
     }
+    ActionLogFormat(ActionLog::WRITE_MEMORY, "ScriptRunner-%p-%p",
+    		static_cast<void*>(this), static_cast<void*>(scriptElement));
     m_timer.startOneShot(0);
 }
 
 void ScriptRunner::timerFired(Timer<ScriptRunner>* timer)
 {
+	ActionLogScope log_scope("script runner timer");
     ASSERT_UNUSED(timer, timer == &m_timer);
 
     RefPtr<Document> protect(m_document);
@@ -118,7 +124,10 @@ void ScriptRunner::timerFired(Timer<ScriptRunner>* timer)
     for (size_t i = 0; i < size; ++i) {
         CachedScript* cachedScript = scripts[i].cachedScript();
         RefPtr<Element> element = scripts[i].releaseElementAndClear();
-        toScriptElement(element.get())->execute(cachedScript);
+        ScriptElement* script = toScriptElement(element.get());
+        ActionLogFormat(ActionLog::READ_MEMORY, "ScriptRunner-%p-%p",
+        		static_cast<void*>(this), static_cast<void*>(script));
+        script->execute(cachedScript);
         m_document->decrementLoadEventDelayCount();
     }
 }

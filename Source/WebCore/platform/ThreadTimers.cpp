@@ -30,12 +30,150 @@
 #include "SharedTimer.h"
 #include "ThreadGlobalData.h"
 #include "Timer.h"
+#include <wtf/ActionLogReport.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/MainThread.h>
+#include <wtf/text/CString.h>
+#include <wtf/text/WTFString.h>
+#include <wtf/text/StringBuilder.h>
+#include <stdio.h>
+
+#include <vector>
+#include <set>
 
 using namespace std;
 
 namespace WebCore {
+
+EventActionsHB::EventActionsHB()
+    : m_invalidEventAction(true),
+      m_networkResponseRecursion(0),
+      m_uiActionRecursion(0),
+      m_inTimerEventAction(false),
+      m_numDisabledInstrumentationRequests(0) {
+	allocateEventActionId();  // event action with id 0 is unused (as empty value for hashtables).
+	m_currentEventActionId = allocateEventActionId();
+	m_lastUIEventAction = m_currentEventActionId;
+}
+
+EventActionsHB::~EventActionsHB() {
+}
+
+EventActionId EventActionsHB::allocateEventActionId() {
+	EventActionId result = m_timerInfo.size();
+	m_timerInfo.append(TimerEvent());
+	if (result % 8192 == 8191) {
+		ActionLogSave();
+	}
+	return result;
+}
+
+void EventActionsHB::addExplicitArc(EventActionId earlier, EventActionId later) {
+	if (earlier <= 0 || later <= 0 || earlier == later) {
+		CRASH();
+	}
+	ActionLogAddArc(earlier, later, -1);
+}
+
+void EventActionsHB::addTimedArc(EventActionId earlier, EventActionId later, double duration) {
+	if (earlier <= 0 || later <= 0) {
+		CRASH();
+	}
+	ActionLogAddArc(earlier, later, duration * 1000);
+}
+
+void EventActionsHB::setCurrentEventAction(EventActionId newEventActionId) {
+	m_currentEventActionId = newEventActionId;
+	m_timerInfo[newEventActionId].m_wasEntered = true;
+	m_invalidEventAction = false;
+	if (m_inTimerEventAction) {
+		ActionLogEnterOperation(newEventActionId, ActionLog::TIMER);
+	} else if (m_uiActionRecursion > 0) {
+		ActionLogEnterOperation(newEventActionId, ActionLog::USER_INTERFACE);
+	} else if (m_networkResponseRecursion > 0) {
+		ActionLogEnterOperation(newEventActionId, ActionLog::NETWORK);
+	} else {
+		ActionLogEnterOperation(newEventActionId, ActionLog::UNKNOWN);
+	}
+}
+
+EventActionId EventActionsHB::splitCurrentEventActionIfNotInScope() {
+	setCurrentEventAction(allocateEventActionId());
+	return currentEventAction();
+}
+
+void EventActionsHB::setCurrentEventActionInvalid() {
+	ActionLogExitOperation();
+	m_invalidEventAction = true;
+}
+
+void EventActionsHB::checkInValidEventAction() {
+	if (m_invalidEventAction) {
+		fprintf(stderr, "Not in a valid event action.\n");
+		fflush(stderr);
+		CRASH();
+	}
+}
+
+void EventActionsHB::userInterfaceModification() {
+	// Note(veselin): We've decided not to insert arcs from
+	// UI modification to UI event arcs.
+}
+
+EventActionId EventActionsHB::startUIAction() {
+	if (m_inTimerEventAction || m_networkResponseRecursion != 0) {
+		return m_currentEventActionId;
+	}
+//	printf("ui open %d\n", m_uiActionRecursion);
+	if (m_uiActionRecursion++ == 0) {
+		EventActionId newId = allocateEventActionId();
+		addExplicitArc(m_lastUIEventAction, newId);
+		setCurrentEventAction(newId);
+		m_lastUIEventAction = newId;
+	}
+	return m_currentEventActionId;
+}
+
+void EventActionsHB::endUIAction() {
+	if (m_inTimerEventAction || m_networkResponseRecursion != 0) {
+		return;
+	}
+	--m_uiActionRecursion;
+	if (m_uiActionRecursion == 0) {
+		setCurrentEventActionInvalid();
+	}
+//	printf("ui close %d\n", m_uiActionRecursion);
+}
+
+EventActionId EventActionsHB::startNetworkResponseEventAction() {
+	if (m_inTimerEventAction || m_uiActionRecursion != 0) {
+		return m_currentEventActionId;
+	}
+//	printf("open %d\n", m_networkResponseRecursion);
+	if (m_networkResponseRecursion++ == 0) {
+		setCurrentEventAction(allocateEventActionId());
+	}
+	return m_currentEventActionId;
+}
+
+void EventActionsHB::finishNetworkReponseEventAction() {
+	if (m_inTimerEventAction || m_uiActionRecursion != 0) {
+		return;
+	}
+	--m_networkResponseRecursion;
+	if (m_networkResponseRecursion == 0) {
+		setCurrentEventActionInvalid();
+	}
+//	printf("close %d\n", m_networkResponseRecursion);
+}
+
+void EventActionsHB::setInTimerEventAction(bool inTimer) {
+//	printf("in timer %d\n", static_cast<int>(inTimer));
+	if (m_uiActionRecursion != 0 || m_networkResponseRecursion != 0) {
+		CRASH();
+	}
+	m_inTimerEventAction = inTimer;
+}
 
 // Fire timers for this length of time, and then quit to let the run loop process user input events.
 // 100ms is about a perceptable delay in UI, so use a half of that as a threshold.
@@ -108,11 +246,29 @@ void ThreadTimers::sharedTimerFiredInternal()
         timer->m_nextFireTime = 0;
         timer->heapDeleteMin();
 
+        if (!m_eventActionsHB.isInstrumentationDisabled()) {
+			EventActionId newId = m_eventActionsHB.allocateEventActionId();
+			m_eventActionsHB.setCurrentEventAction(newId);
+			timer->m_lastFireEventAction = newId;
+			if (timer->m_ignoreFireIntervalForHappensBefore) {
+				m_eventActionsHB.addExplicitArc(timer->m_starterEventAction, newId);
+			} else {
+				m_eventActionsHB.addTimedArc(timer->m_starterEventAction, newId, timer->m_nextFireInterval);
+			}
+			m_eventActionsHB.setInTimerEventAction(true);
+        }
+        ActionLogEventTriggered(timer);
+
         double interval = timer->repeatInterval();
-        timer->setNextFireTime(interval ? fireTime + interval : 0);
+        timer->setNextFireTime(interval ? fireTime + interval : 0, interval);
 
         // Once the timer has been fired, it may be deleted, so do nothing else with it after this point.
         timer->fired();
+
+        if (!m_eventActionsHB.isInstrumentationDisabled()) {
+        	m_eventActionsHB.setInTimerEventAction(false);
+        	m_eventActionsHB.setCurrentEventActionInvalid();
+        }
 
         // Catch the case where the timer asked timers to fire in a nested event loop, or we are over time limit.
         if (!m_firingTimers || timeToQuit < monotonicallyIncreasingTime())
