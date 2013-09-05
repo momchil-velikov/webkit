@@ -1,5 +1,5 @@
-webkit
-======
+EventRacer WebKit-based browser
+===============================
 
 WebKit fork with the EventRacer instrumentation for race detection.
 
@@ -8,8 +8,8 @@ This tool has been tested with Ubuntu linux only using the Qt port of it. Most o
 portable for other targers, but auto-exploration depends on Qt.
 
 
-Compiling
-=========
+Compiling (tested only on Linux)
+--------------------------------
 
 Prerequisites:
 
@@ -29,7 +29,7 @@ Alternatively, one can use the standard instructions for compiling QtWebKit at
 http://trac.webkit.org/wiki/BuildingQtOnLinux and compile with different setting.
 
 Running the browser
-===================
+-------------------
 
 To run the browser, call:
    * Tools/Scripts/run-launcher
@@ -39,32 +39,26 @@ The browser produces a file WTF_actionlog. This file is then passed to EventRace
 The race analyzer is available here: https://github.com/eth-srl/EventRacer
 
 Using auto exploration
-======================
+----------------------
 
 We added code to QtTestBrowser to automatically explore a website once it is loaded. To use it,
-run the following:
+use a command like this:
 
-echo $SITE > /tmp/url_file
-WebKitBuild/Release/bin/QtTestBrowser -r /tmp/url_file \
-       -robot-timeout 25 -robot-extra-time 15 -maximize -auto-explore
-
-where SITE is set to the site to automatically explore e.g. http://maps.google.com/
-
-This will explore the site
+   * ./auto_explore_site.sh http://maps.google.com/
 
 After auto-exploration, a WTF_actionlog file is produced. This file is then passed to EventRacer race analyzer.
 
 The race analyzer is available here: https://github.com/eth-srl/EventRacer
 
-Other targets
-=============
+Compiling other targets
+-----------------------
 
 With the exception of the auto-exploration, the instrumentation is entirely in WebCore, WTF, and
 the JavaScriptCore interpreter (the JIT or V8 is not supported). However, other targets are not
 tested. We would be glad to hear your experience if you want to use some other port.
 
 Credits
-=======
+-------
 
 This modified browser uses a fork on WebKit from 2012 (version 116000 from the WebKit svn)
 (newer versions do not include the classic interpreter and are not compatible).
