@@ -160,7 +160,7 @@ bool ActionLogWillAddCommand(ActionLog::CommandType cmd) {
 }
 
 void ActionLogSave() {
-	FILE* f = fopen("WTF_actionlog", "wb");
+	FILE* f = fopen("ER_actionlog", "wb");
 	wtfThreadData().variableSet()->saveToFile(f);
 	wtfThreadData().scopeSet()->saveToFile(f);
 	wtfThreadData().actionLog()->saveToFile(f);

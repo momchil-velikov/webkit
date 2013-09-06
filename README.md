@@ -34,7 +34,7 @@ Running the browser
 To run the browser, call:
    * Tools/Scripts/run-launcher
 
-The browser produces a file WTF_actionlog. This file is then passed to EventRacer race analyzer.
+The browser produces a file ER_actionlog. This file is then passed to EventRacer race analyzer.
 
 The race analyzer is available here: https://github.com/eth-srl/EventRacer
 
@@ -46,14 +46,14 @@ use a command like this:
 
    * ./auto_explore_site.sh http://maps.google.com/
 
-After auto-exploration, a WTF_actionlog file is produced. This file is then passed to EventRacer race analyzer.
+After auto-exploration, a ER_actionlog file is produced. This file is then passed to EventRacer race analyzer.
 
 The race analyzer is available here: https://github.com/eth-srl/EventRacer
 
 Compiling other targets
 -----------------------
 
-With the exception of the auto-exploration, the instrumentation is entirely in WebCore, WTF, and
+With the exception of the auto-exploration, the instrumentation is entirely in WebCore, Web Template Foundation, and
 the JavaScriptCore interpreter (the JIT or V8 is not supported). However, other targets are not
 tested. We would be glad to hear your experience if you want to use some other port.
 
