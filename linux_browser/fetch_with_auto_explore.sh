@@ -8,5 +8,6 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd $TARGET_DIR
 
 LD_LIBRARY_PATH=$DIR $DIR/QtTestBrowser -r $URL_FILE \
+       -hidden-window \
        -robot-timeout 10 -robot-extra-time 1 -maximize -auto-explore
 
