@@ -18,6 +18,20 @@ Prerequisites:
 
 Compiling instructions (these instructions are standard for QtWebKit):
 
+   * Download Qt 4
+      * 4.8.1 is available only as source (for some reason a binary package is no longer available at Qt website).
+         * Download site: http://download.qt-project.org/archive/qt/4.8/4.8.1/)
+         * The file needed is qt-everywhere-opensource-src-4.8.1.zip
+      * In the Qt archive there are compiling instructions (in doc/html/installation.html)
+      * Extract 
+      * To compile Qt, do:
+         * export MAKE=/usr/bin/make
+         * ./configure  -prefix /home/$USER/Qt4.8.1
+         * make
+         * make install
+   * Download other prerequisites
+      * sudo apt-get install bison flex libqt4-dev libqt4-opengl-dev libphonon-dev libicu-dev libsqlite3-dev libxext-dev libxrender-dev gperf libfontconfig1-dev libphonon-dev libpng12-dev libjpeg62-dev g++
+
    * Set an environment variable with the location of Qt
       * export QTDIR=/home/$USER/QtSDK/Desktop/Qt/4.8.1/gcc
    * Add Qt to the PATH
