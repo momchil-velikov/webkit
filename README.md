@@ -54,8 +54,8 @@ passed to EventRacer for race analysis.
 
 The race analyzer is available here: https://github.com/eth-srl/EventRacer
 
-Using auto exploration
-----------------------
+Using WebKit in auto-exploration mode
+-------------------------------------
 
 We added code to QtTestBrowser to automatically explore a website once it is loaded. To use this feature, type:
 
