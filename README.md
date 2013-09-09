@@ -39,32 +39,29 @@ Use the steps below only if your linux distro does not have a libqt4-dev package
  * Only source packages can be downloaded nowadays. The instructions are in doc/html/installation.html
     * Run ```export MAKE=/usr/bin/make && ./configure  -prefix /home/$USER/Qt4.8.1 && make && make install```
  * Then, before compiling WebKit, set ```export QTDIR=/home/$USER/Qt4.8.1```
- * Compile WebKit with: 
- ...
-   Tools/Scripts/build-webkit --no-netscape-plugin --qt --makeargs="-j8"
- ...
+ * Compile WebKit with ``` Tools/Scripts/build-webkit --no-netscape-plugin --qt --makeargs="-j8" ```
  * Alternatively, one can use the standard instructions for compiling QtWebKit at
 http://trac.webkit.org/wiki/BuildingQtOnLinux and compile with different setting.
 
-Running the browser
--------------------
+Running WebKit
+--------------
 
 To run the browser, call:
    * ./run_browser.sh
 
-The browser produces a file ER_actionlog. This file is then passed to EventRacer race analyzer.
+The browser produces a file called ER_actionlog. This file contains a trace of the releveant events. This file
+passed to EventRacer for race analysis. 
 
 The race analyzer is available here: https://github.com/eth-srl/EventRacer
 
 Using auto exploration
 ----------------------
 
-We added code to QtTestBrowser to automatically explore a website once it is loaded. To use it,
-use a command like this:
+We added code to QtTestBrowser to automatically explore a website once it is loaded. To use this feature, type:
 
    * ./auto_explore_site.sh http://maps.google.com/
 
-After auto-exploration, a ER_actionlog file is produced. This file is then passed to EventRacer race analyzer.
+After auto-exploration, the ER_actionlog file is produced. This file is then passed to EventRacer race analyzer.
 
 The race analyzer is available here: https://github.com/eth-srl/EventRacer
 
