@@ -16,7 +16,8 @@ The compilation instructions are standard for QtWebKit (when qt4 is used):
 Download prerequsities:
 
 ```
-sudo apt-get install bison flex libqt4-dev libqt4-opengl-dev libphonon-dev libicu-dev libsqlite3-dev libxext-dev libxrender-dev gperf libfontconfig1-dev libphonon-dev libpng12-dev libjpeg62-dev g++
+sudo apt-get install bison flex libqt4-dev libqt4-opengl-dev libphonon-dev libicu-dev 
+                      libsqlite3-dev libxext-dev libxrender-dev gperf libfontconfig1-dev libphonon-dev libpng12-dev libjpeg62-dev g++
 ```
 
 Set environment variables and compile:
