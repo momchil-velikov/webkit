@@ -39,7 +39,7 @@ Running the browser
 -------------------
 
 To run the browser, call:
-   * Tools/Scripts/run-launcher --qt
+   * ./run_browser.sh
 
 The browser produces a file ER_actionlog. This file is then passed to EventRacer race analyzer.
 
