@@ -31,7 +31,7 @@ Tools/Scripts/build-webkit --no-netscape-plugin --qt --makeargs="-j8"
       * Download location of Qt4.8.1: http://download.qt-project.org/archive/qt/4.8/4.8.1/
       * Only source packages can be downloaded nowadays. The instructions are in doc/html/installation.html
          * Run ```export MAKE=/usr/bin/make && ./configure  -prefix /home/$USER/Qt4.8.1 && make && make install```
-      * Then, when compiling WebKit, set ```export QTDIR=/usr/share/Qt4.8.1/Desktop/Qt/4.8.1/gcc```
+      * Then, when compiling WebKit, set ```export QTDIR=/home/$USER/Qt4.8.1```
       * Alternatively, one can use the standard instructions for compiling QtWebKit at
 http://trac.webkit.org/wiki/BuildingQtOnLinux and compile with different setting.
 
