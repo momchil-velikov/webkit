@@ -29,10 +29,9 @@ Tools/Scripts/build-webkit --no-netscape-plugin --qt --makeargs="-j8"
 ```
 This should complete the building of WebKit. 
 
-```
 
-Troubleshooting
----------------
+Troubleshooting Compilation
+---------------------------
 
 Use the steps below only if your linux distro does not have a libqt4-dev package. Then, you need to download and install Qt from source.
  * Download location of Qt4.8.1: http://download.qt-project.org/archive/qt/4.8/4.8.1/
