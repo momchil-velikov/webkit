@@ -25,6 +25,7 @@ Set environment variables and compile:
 ```
 export QTDIR=/usr/share/qt4
 export PATH=$QTDIR/bin:$PATH
+cd webkit
 Tools/Scripts/build-webkit --no-netscape-plugin --qt --makeargs="-j8"
 ```
 This should complete the building of WebKit. 
