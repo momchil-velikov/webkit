@@ -32,11 +32,11 @@ Troubleshooting
 ---------------
 
 Use the steps below only if your linux distro does not have a libqt4-dev package. Then, you need to download and install Qt from source.
-      * Download location of Qt4.8.1: http://download.qt-project.org/archive/qt/4.8/4.8.1/
-      * Only source packages can be downloaded nowadays. The instructions are in doc/html/installation.html
-         * Run ```export MAKE=/usr/bin/make && ./configure  -prefix /home/$USER/Qt4.8.1 && make && make install```
-      * Then, when compiling WebKit, set ```export QTDIR=/home/$USER/Qt4.8.1```
-      * Alternatively, one can use the standard instructions for compiling QtWebKit at
+ * Download location of Qt4.8.1: http://download.qt-project.org/archive/qt/4.8/4.8.1/
+ * Only source packages can be downloaded nowadays. The instructions are in doc/html/installation.html
+    * Run ```export MAKE=/usr/bin/make && ./configure  -prefix /home/$USER/Qt4.8.1 && make && make install```
+ * Then, when compiling WebKit, set ```export QTDIR=/home/$USER/Qt4.8.1```
+ * Alternatively, one can use the standard instructions for compiling QtWebKit at
 http://trac.webkit.org/wiki/BuildingQtOnLinux and compile with different setting.
 
 Running the browser
