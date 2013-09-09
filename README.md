@@ -35,7 +35,8 @@ Troubleshooting Compilation
 ---------------------------
 
 Use the steps below only if your linux distro does not have a libqt4-dev package. Then, you need to download and install Qt from source.
- * Download Qt4.8.1 source: http://download.qt-project.org/archive/qt/4.8/4.8.1/
+ * Download Qt4.8.1 source from here: http://download.qt-project.org/archive/qt/4.8/4.8.1/
+    * You need a file called:  qt-everywhere-opensource-src-4.8.1
  * Only source packages can be downloaded nowadays. The instructions are in doc/html/installation.html
     * Run ```export MAKE=/usr/bin/make && ./configure  -prefix /home/$USER/Qt4.8.1 && make && make install```
  * Then, before compiling WebKit, set ```export QTDIR=/home/$USER/Qt4.8.1```
