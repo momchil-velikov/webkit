@@ -8,45 +8,38 @@ This tool has been tested with Ubuntu linux only using the Qt port of it. Most o
 portable for other targers, but auto-exploration depends on Qt.
 
 
-Compiling (tested only on Linux)
---------------------------------
+Compiling (tested only on 64-bit Ubuntu 12.04)
+----------------------------------------------
 
-Prerequisites:
+The compilation instructions are standard for QtWebKit (when qt4 is used):
 
-   * Qt (we tested with 4.8.1, but it could probably work with 5.x as well)
-   * gcc or g++ (tested with 4.6.3)
+Download prerequsities:
 
-Compiling instructions (these instructions are standard for QtWebKit):
+```
+sudo apt-get install bison flex libqt4-dev libqt4-opengl-dev libphonon-dev libicu-dev libsqlite3-dev libxext-dev libxrender-dev gperf libfontconfig1-dev libphonon-dev libpng12-dev libjpeg62-dev g++
+```
 
-   * Download Qt 4
-      * 4.8.1 is available only as source (for some reason a binary package is no longer available at Qt website).
-         * Download site: http://download.qt-project.org/archive/qt/4.8/4.8.1/)
-         * The file needed is qt-everywhere-opensource-src-4.8.1.zip
-      * In the Qt archive there are compiling instructions (in doc/html/installation.html)
-      * Extract 
-      * To compile Qt, do:
-         * export MAKE=/usr/bin/make
-         * ./configure  -prefix /home/$USER/Qt4.8.1
-         * make
-         * make install
-   * Download other prerequisites
-      * sudo apt-get install bison flex libqt4-dev libqt4-opengl-dev libphonon-dev libicu-dev libsqlite3-dev libxext-dev libxrender-dev gperf libfontconfig1-dev libphonon-dev libpng12-dev libjpeg62-dev g++
+Set environment variables and compile:
 
-   * Set an environment variable with the location of Qt
-      * export QTDIR=/home/$USER/QtSDK/Desktop/Qt/4.8.1/gcc
-   * Add Qt to the PATH
-      * export PATH=$QTDIR/bin:$PATH
-   * Compile
-      * Tools/Scripts/build-webkit --no-netscape-plugin --qt --makeargs="-j8"
-      
-Alternatively, one can use the standard instructions for compiling QtWebKit at
+```
+export QTDIR=/usr/share/qt4
+export PATH=$QTDIR/bin:$PATH
+Tools/Scripts/build-webkit --no-netscape-plugin --qt --makeargs="-j8"
+```
+
+   * Troubleshooting: Only if your linux distro does not have a libqt4-dev package, you need to download and install Qt from source.
+      * Download location of Qt4.8.1: http://download.qt-project.org/archive/qt/4.8/4.8.1/
+      * Only source packages can be downloaded nowadays. The instructions are in doc/html/installation.html
+         * Run ```export MAKE=/usr/bin/make && ./configure  -prefix /home/$USER/Qt4.8.1 && make && make install```
+      * Then, when compiling WebKit, set ```export QTDIR=/usr/share/Qt4.8.1/Desktop/Qt/4.8.1/gcc```
+      * Alternatively, one can use the standard instructions for compiling QtWebKit at
 http://trac.webkit.org/wiki/BuildingQtOnLinux and compile with different setting.
 
 Running the browser
 -------------------
 
 To run the browser, call:
-   * Tools/Scripts/run-launcher
+   * Tools/Scripts/run-launcher --qt
 
 The browser produces a file ER_actionlog. This file is then passed to EventRacer race analyzer.
 
@@ -75,4 +68,4 @@ Credits
 -------
 
 This modified browser uses a fork on WebKit from 2012 (version 116000 from the WebKit svn)
-(newer versions do not include the classic interpreter and are not compatible).
+(newer versions do not include the classic interpreter and are not compatible, newer versions may also require qt5).
