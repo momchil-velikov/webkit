@@ -59,7 +59,8 @@ namespace WebCore {
 		}
 
 		// Allocates a new event action and enters in it.
-		EventActionId splitCurrentEventActionIfNotInScope();
+		EventActionId splitCurrentEventActionIfNotInScope(
+				bool add_arc_from_current_tonew_event_action);
 
 		void setCurrentEventAction(EventActionId newId);
 		void setCurrentEventActionInvalid();

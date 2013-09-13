@@ -97,8 +97,16 @@ void EventActionsHB::setCurrentEventAction(EventActionId newEventActionId) {
 	}
 }
 
-EventActionId EventActionsHB::splitCurrentEventActionIfNotInScope() {
-	setCurrentEventAction(allocateEventActionId());
+EventActionId EventActionsHB::splitCurrentEventActionIfNotInScope(
+		bool add_arc_from_current_tonew_event_action) {
+	if (ActionLogScopeDepth() == 0) {
+		EventActionId old_id = currentEventAction();
+		EventActionId new_id = allocateEventActionId();
+		setCurrentEventAction(new_id);
+		if (add_arc_from_current_tonew_event_action) {
+			addExplicitArc(old_id, new_id);
+		}
+	}
 	return currentEventAction();
 }
 

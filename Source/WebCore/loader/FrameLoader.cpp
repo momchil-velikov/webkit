@@ -99,6 +99,7 @@
 #include "SerializedScriptValue.h"
 #include "Settings.h"
 #include "TextResourceDecoder.h"
+#include "ThreadTimers.h"
 #include "Timer.h"
 #include "WindowFeatures.h"
 #include "XMLDocumentParser.h"
@@ -660,6 +661,7 @@ void FrameLoader::finishedParsing()
 
 void FrameLoader::loadDone()
 {
+	threadGlobalData().threadTimers().happensBefore().splitCurrentEventActionIfNotInScope(true);
     checkCompleted();
 }
 
@@ -710,7 +712,10 @@ void FrameLoader::checkCompleted()
 
     // SRL: Include the join happens before relations.
     m_frame->document()->parsingJoin();
+    threadGlobalData().threadTimers().happensBefore().splitCurrentEventActionIfNotInScope(true);
     m_frame->document()->cachedResourceLoader()->requestCountJoin();
+    threadGlobalData().threadTimers().happensBefore().splitCurrentEventActionIfNotInScope(true);
+
     m_frame->document()->delayingLoadEventJoin();
     for (Frame* child = m_frame->tree()->firstChild(); child; child = child->tree()->nextSibling()) {
     	if (child->loader() != this) {

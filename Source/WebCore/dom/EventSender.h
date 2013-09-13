@@ -70,6 +70,7 @@ template<typename T> void EventSender<T>::dispatchEventSoon(T* sender)
 {
     m_dispatchSoonList.append(sender);
     m_dispatchSoonCallers.append(CurrentEventActionId());
+    // ActionLogFormat(ActionLog::WRITE_MEMORY, "EventSender:%p", static_cast<void*>(sender));
     if (!m_timer.isActive())
         m_timer.startOneShot(0);
 }
@@ -108,9 +109,11 @@ template<typename T> void EventSender<T>::dispatchPendingEvents()
     for (size_t i = 0; i < size; ++i) {
         if (T* sender = m_dispatchingList[i]) {
             m_dispatchingList[i] = 0;
-            // SRL: Split event action on multiple events.
-            threadGlobalData().threadTimers().happensBefore().splitCurrentEventActionIfNotInScope();
+            // SRL: Split event actions that process different events.
+            threadGlobalData().threadTimers().happensBefore().splitCurrentEventActionIfNotInScope(false);
             threadGlobalData().threadTimers().happensBefore().addExplicitArc(m_dispatchingCallers[i], CurrentEventActionId());
+            // ActionLogFormat(ActionLog::READ_MEMORY, "EventSender:%p", static_cast<void*>(sender));
+            ActionLogScope s("dispatch-event");
             sender->dispatchPendingEvent(this);
         }
     }

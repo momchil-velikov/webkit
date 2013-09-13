@@ -88,6 +88,7 @@ MultiJoinHappensBefore::~MultiJoinHappensBefore() {
 
 void MultiJoinHappensBefore::threadEndAction() {
 	threadGlobalData().threadTimers().happensBefore().checkInValidEventAction();
+	// ActionLogFormat(ActionLog::WRITE_MEMORY, "SyncJoin:%p", static_cast<void*>(this));
 	m_endThreads = new LList(CurrentEventActionId(), m_endThreads);
 }
 
@@ -118,6 +119,8 @@ void MultiJoinHappensBefore::joinAction() {
 		}
 		curr = curr->m_next;
 	}
+
+	// ActionLogFormat(ActionLog::READ_MEMORY, "SyncJoin:%p", static_cast<void*>(this));
 }
 
 DisabledInstrumentation::DisabledInstrumentation() {

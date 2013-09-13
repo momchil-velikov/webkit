@@ -2424,6 +2424,9 @@ void Document::implicitClose()
         accessSVGExtensions()->dispatchSVGLoadEventToOutermostSVGElements();
 #endif
 
+    // SRL: Split the Window onload from image onload events that may precede it.
+    threadGlobalData().threadTimers().happensBefore().splitCurrentEventActionIfNotInScope(true);
+
     dispatchWindowLoadEvent();
     enqueuePageshowEvent(PageshowEventNotPersisted);
     enqueuePopstateEvent(m_pendingStateObject ? m_pendingStateObject.release() : SerializedScriptValue::nullValue());
