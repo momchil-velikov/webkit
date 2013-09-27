@@ -111,7 +111,10 @@ template<typename T> void EventSender<T>::dispatchPendingEvents()
             m_dispatchingList[i] = 0;
             // SRL: Split event actions that process different events.
             threadGlobalData().threadTimers().happensBefore().splitCurrentEventActionIfNotInScope(false);
-            threadGlobalData().threadTimers().happensBefore().addExplicitArc(m_dispatchingCallers[i], CurrentEventActionId());
+            if (m_dispatchingCallers[i] != CurrentEventActionId()) {
+            	threadGlobalData().threadTimers().happensBefore().addExplicitArc(
+            			m_dispatchingCallers[i], CurrentEventActionId());
+            }
             // ActionLogFormat(ActionLog::READ_MEMORY, "EventSender:%p", static_cast<void*>(sender));
             ActionLogScope s("dispatch-event");
             sender->dispatchPendingEvent(this);
