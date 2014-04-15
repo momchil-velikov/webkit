@@ -102,12 +102,6 @@ bool ActionLog::logCommand(CommandType command, int memoryLocation) {
 	std::vector<Command>& current_cmds = m_eventActions[m_currentEventActionId]->m_commands;
 	if (command == ENTER_SCOPE) ++m_scopeDepth;
 	if (command == EXIT_SCOPE) --m_scopeDepth;
-	if (command == EXIT_SCOPE &&
-		current_cmds.size() > 0 &&
-		current_cmds[current_cmds.size() - 1].m_cmdType == ENTER_SCOPE) {
-		current_cmds.pop_back();  // Remove the last enter scope. There was nothing in it and we exit it.
-		return true;
-	}
 	current_cmds.push_back(c);
 	return true;
 }
