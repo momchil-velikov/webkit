@@ -295,9 +295,44 @@ void HTMLDocumentParser::pumpTokenizer(SynchronousMode mode)
             // http/tests/security/xssAuditor/dom-write-innerHTML.html
             m_xssAuditor.filterToken(m_token);
         }
+       
+        String scope, tmp;
+        switch (m_token.type()) {
+        case HTMLTokenTypes::DOCTYPE:
+            tmp = String(m_token.name().data(), m_token.name().size());
+            scope = String::format("<!DOCTYPE %s>", tmp.ascii().data());
+            break;
+        case HTMLTokenTypes::EndOfFile:
+            scope = "$EOF";
+            break;
+        case HTMLTokenTypes::StartTag:
+            tmp = String(m_token.name().data(), m_token.name().size());
+            if (m_token.selfClosing()) {
+                scope = String::format("<%s/>", tmp.ascii().data());
+            } else {
+                scope = String::format("<%s>", tmp.ascii().data());
+            }
+            break;
+        case HTMLTokenTypes::EndTag:
+            tmp = String(m_token.name().data(), m_token.name().size());
+            scope = String::format("</%s>", tmp.ascii().data());
+            break;
+        case HTMLTokenTypes::Comment:
+            scope = "$comment";
+            break;
+        case HTMLTokenTypes::Character:
+            scope = "$character";
+            break;
+        default:
+            scope = "$other";
+            break;
+        }
 
-        m_treeBuilder->constructTreeFromToken(m_token);
-        ASSERT(m_token.isUninitialized());
+        {
+            ActionLogScope logScope(String::format("HTML token %s", scope.ascii().data()).ascii().data());
+            m_treeBuilder->constructTreeFromToken(m_token);
+            ASSERT(m_token.isUninitialized());
+        }
 
         // SRL: We yield after every single token to split the parsing of every
         // element into its own event action.
