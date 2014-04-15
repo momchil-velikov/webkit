@@ -69,14 +69,14 @@ ResourceLoader::ResourceLoader(Frame* frame, ResourceLoaderOptions options)
     , m_options(options)
     , m_lastEventActionId(-1)
 {
-	// SRL: Set which is the first slice of a resource.
-	if (!threadGlobalData().threadTimers().happensBefore().isCurrentEventActionValid()) {
-		// Create a timeslice. Usually this happens when a resource is part of css and
-		// then it may be loaded from a layout computation. We can't do much for it.
-		threadGlobalData().threadTimers().happensBefore().setCurrentEventAction(
-				threadGlobalData().threadTimers().happensBefore().allocateEventActionId());
-	}
-	m_lastEventActionId = CurrentEventActionId();
+    // SRL: Set which is the first slice of a resource.
+    if (!threadGlobalData().threadTimers().happensBefore().isCurrentEventActionValid()) {
+        // Create a timeslice. Usually this happens when a resource is part of css and
+        // then it may be loaded from a layout computation. We can't do much for it.
+        threadGlobalData().threadTimers().happensBefore().setCurrentEventAction(
+		threadGlobalData().threadTimers().happensBefore().allocateEventActionId());
+    }
+    m_lastEventActionId = CurrentEventActionId();
 }
 
 ResourceLoader::~ResourceLoader()
@@ -163,12 +163,12 @@ void ResourceLoader::start()
     ASSERT(m_deferredRequest.isNull());
 
     // SRL: If this is loaded from CSS.
-	if (!threadGlobalData().threadTimers().happensBefore().isCurrentEventActionValid()) {
-		// Create a timeslice. Usually this happens when a resource is part of css and
-		// then it may be loaded from a layout computation. We can't do much for it.
-		threadGlobalData().threadTimers().happensBefore().setCurrentEventAction(
-				threadGlobalData().threadTimers().happensBefore().allocateEventActionId());
-	}
+    if (!threadGlobalData().threadTimers().happensBefore().isCurrentEventActionValid()) {
+        // Create a timeslice. Usually this happens when a resource is part of css and
+        // then it may be loaded from a layout computation. We can't do much for it.
+        threadGlobalData().threadTimers().happensBefore().setCurrentEventAction(
+		threadGlobalData().threadTimers().happensBefore().allocateEventActionId());
+    }
     // SRL: Log that this is a start of a resource loading.
     ActionLogScope log_scope(
     		String::format("load_start:%s", m_request.url().lastPathComponent().ascii().data()).ascii().data());

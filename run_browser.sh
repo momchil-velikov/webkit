@@ -1,3 +1,3 @@
 #!/bin/bash
-WebKitBuild/Release/bin/QtTestBrowser 
+WebKitBuild/Debug/bin/QtTestBrowser 
 ls -l ER_actionlog

@@ -5170,10 +5170,10 @@ void Document::didReceiveTask(void* untypedContext)
         return;
     }
 
-	// Create a time slice.
-	threadGlobalData().threadTimers().happensBefore().setCurrentEventAction(
+    // Create a time slice.
+    threadGlobalData().threadTimers().happensBefore().setCurrentEventAction(
 			threadGlobalData().threadTimers().happensBefore().allocateEventActionId());
-	// Add happens before arc from the time slice where it was started.
+    // Add happens before arc from the time slice where it was started.
     if (context->startEventActionId != -1) {
     	threadGlobalData().threadTimers().happensBefore().addExplicitArc(context->startEventActionId, CurrentEventActionId());
     }
