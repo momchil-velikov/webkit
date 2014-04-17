@@ -9,7 +9,7 @@
 haveQt(4) {
     QMAKE_LIBDIR = $$ROOT_BUILD_DIR/lib $$QMAKE_LIBDIR
     QTWEBKITLIBNAME = QtWebKit
-    mac:!static:contains(QT_CONFIG, qt_framework):!CONFIG(webkit_no_framework) {
+    mac {
         LIBS += -framework $$QTWEBKITLIBNAME
         QMAKE_FRAMEWORKPATH = $$ROOT_BUILD_DIR/lib $$QMAKE_FRAMEWORKPATH
     } else {

@@ -213,30 +213,10 @@
 /* OVERRIDE */
 
 #ifndef OVERRIDE
-#if COMPILER(CLANG)
-#if __has_extension(cxx_override_control)
-#define OVERRIDE override
-#endif
-#elif COMPILER(MSVC)
-#define OVERRIDE override
-#endif
-#endif
-
-#ifndef OVERRIDE
 #define OVERRIDE
 #endif
 
 /* FINAL */
-
-#ifndef FINAL
-#if COMPILER(CLANG)
-#if __has_extension(cxx_override_control)
-#define FINAL final
-#endif
-#elif COMPILER(MSVC)
-#define FINAL sealed
-#endif
-#endif
 
 #ifndef FINAL
 #define FINAL
