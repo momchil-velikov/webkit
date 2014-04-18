@@ -116,3 +116,6 @@ tags
 # Ignore Eclipse files:
 .project
 .cproject
+
+# Ignore netbeans files
+/nbproject

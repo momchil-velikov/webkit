@@ -268,6 +268,7 @@ void HTMLDocumentParser::pumpTokenizer(SynchronousMode mode)
     // much we parsed as part of didWriteHTML instead of willWriteHTML.
     InspectorInstrumentationCookie cookie = InspectorInstrumentation::willWriteHTML(document(), m_input.current().length(), m_tokenizer->lineNumber().zeroBasedInt());
 
+#if 0
     // Note(veselin): We order pops from the queue with happens before, but
     // HTML modifications with scripts are a special case. They could be
     // triggered by events that do not participate in the same parsing order.
@@ -280,6 +281,7 @@ void HTMLDocumentParser::pumpTokenizer(SynchronousMode mode)
     	}
     	m_lastParseEventAction = currentEventAction;
     }
+#endif
 
     while (canTakeNextToken(mode, session) && !session.needsYield) {
         if (!isParsingFragment())
