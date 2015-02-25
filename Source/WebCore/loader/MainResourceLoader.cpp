@@ -97,6 +97,9 @@ PassRefPtr<MainResourceLoader> MainResourceLoader::create(Frame* frame)
 
 void MainResourceLoader::receivedError(const ResourceError& error)
 {
+	// SRL: Create a network response event action.
+	NetworkResponseScope instrumentNetworkResponse(this);
+
     // Calling receivedMainResourceError will likely result in the last reference to this object to go away.
     RefPtr<MainResourceLoader> protect(this);
     RefPtr<Frame> protectFrame(m_frame);
