@@ -303,6 +303,8 @@ BytecodeGenerator::BytecodeGenerator(ProgramNode* programNode, ScopeChainNode* s
     for (size_t i = 0; i < varStack.size(); ++i) {
         if (globalObject->hasProperty(exec, *varStack[i].first))
             continue;
+        ActionLogScope scope("declare_globalvar");
+        Interpreter::DeclareJSCellMemoryWrite(globalObject, varStack[i].first->ascii().data());
         addGlobalVar(*varStack[i].first, varStack[i].second & DeclarationStacks::IsConstant);
     }
 }

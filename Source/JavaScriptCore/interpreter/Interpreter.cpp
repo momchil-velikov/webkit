@@ -1228,8 +1228,16 @@ JSValue Interpreter::execute(ProgramExecutable* program, CallFrame* callFrame, S
                 if (globalObject->hasProperty(callFrame, JSONPPath[0].m_pathEntryName)) {
                     PutPropertySlot slot;
                     globalObject->methodTable()->put(globalObject, callFrame, JSONPPath[0].m_pathEntryName, JSONPValue, slot);
-                } else
+                } else {
                     globalObject->methodTable()->putDirectVirtual(globalObject, callFrame, JSONPPath[0].m_pathEntryName, JSONPValue, DontEnum | DontDelete);
+                }
+
+                // SRL: Instrument putting variables.
+                ActionLogScope scope("json_declare_globalvar");
+                Interpreter::DeclareJSCellMemoryWrite(globalObject, JSONPPath[0].m_pathEntryName.ascii().data());
+                // SRL: Instrument the value.
+                MemoryValue(callFrame, JSONPValue);
+
                 // var declarations return undefined
                 result = jsUndefined();
                 continue;
@@ -1283,9 +1291,18 @@ JSValue Interpreter::execute(ProgramExecutable* program, CallFrame* callFrame, S
                 break;
             }
             case JSONPPathEntryTypeDot: {
+                // SRL: Instrument putting variables.
+                ActionLogScope scope("json_declare_global");
+                Interpreter::DeclareJSCellMemoryWrite(globalObject, JSONPPath.last().m_pathEntryName.ascii().data());
+
+
                 baseObject.put(callFrame, JSONPPath.last().m_pathEntryName, JSONPValue, slot);
                 if (callFrame->hadException())
                     return jsUndefined();
+
+                // SRL: Instrument the value.
+                MemoryValue(callFrame, JSONPValue);
+
                 break;
             }
             case JSONPPathEntryTypeLookup: {
