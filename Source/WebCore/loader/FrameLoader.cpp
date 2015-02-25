@@ -710,9 +710,8 @@ void FrameLoader::checkCompleted()
     if (!allChildrenAreComplete())
         return;
 
-    // SRL: Include the join happens before relations.
-    m_frame->document()->parsingJoin();
     threadGlobalData().threadTimers().happensBefore().splitCurrentEventActionIfNotInScope(true);
+    // SRL: Include the join happens before relations.
     m_frame->document()->cachedResourceLoader()->requestCountJoin();
     threadGlobalData().threadTimers().happensBefore().splitCurrentEventActionIfNotInScope(true);
 
@@ -722,6 +721,8 @@ void FrameLoader::checkCompleted()
     		child->loader()->m_isCompleteJoin.joinAction();
     	}
     }
+    // SRL: Split after iframes.
+    threadGlobalData().threadTimers().happensBefore().splitCurrentEventActionIfNotInScope(true);
 
     // OK, completed.
     m_isComplete = true;
