@@ -8,7 +8,7 @@ This tool has been tested with Ubuntu linux only using the Qt port of it. Most o
 portable for other targers, but auto-exploration depends on Qt.
 
 
-Compiling (tested only on 64-bit Ubuntu 12.04)
+Compiling (tested on 64-bit Ubuntu 12.04 and 14.04)
 ----------------------------------------------
 
 The compilation instructions are standard for QtWebKit (when qt4 is used):
